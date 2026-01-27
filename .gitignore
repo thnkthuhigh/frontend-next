@@ -22,7 +22,7 @@
 
 # misc
 .DS_Store
-*.pem
+*.pems
 
 # debug
 npm-debug.log*

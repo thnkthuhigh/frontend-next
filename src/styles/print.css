@@ -1,0 +1,347 @@
+/**
+ * Print Styles for True WYSIWYG Document Editor
+ * Uses Paged.js compatible @page rules for A4 pagination
+ */
+
+/* A4 Page Setup */
+@page {
+  size: A4;
+  margin: 25mm;
+}
+
+/* First page can have different margins if needed */
+@page :first {
+  margin-top: 30mm;
+}
+
+/* Print-specific styles */
+@media print {
+  /* Hide non-printable elements */
+  .print-hidden,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  /* Reset body styles for print */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Document page styling */
+  .document-page {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 25mm !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  
+  /* Remove visual indicators and backgrounds in print */
+  .wysiwyg-editor-page {
+    background-image: none !important;
+    background: white !important;
+  }
+  
+  .page-break-indicators {
+    display: none !important;
+  }
+  
+  /* Ensure content is visible */
+  .document-content {
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Prevent orphans and widows */
+  p, li, blockquote {
+    orphans: 3;
+    widows: 3;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Avoid breaks inside elements */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  img, table, figure, pre, code {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Keep headings with their content */
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* List items should not break */
+  li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Blockquote should not break */
+  blockquote {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Table styling for print */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  th, td {
+    border: 1px solid #333;
+    padding: 8px;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Code blocks */
+  pre, code {
+    background-color: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 9pt;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  /* Blockquotes */
+  blockquote {
+    border-left: 3px solid #333;
+    padding-left: 1em;
+    margin-left: 0;
+    font-style: italic;
+  }
+
+  /* Links - show URL in print */
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Don't show URL for internal links */
+  a[href^="#"]:after,
+  a[href^="javascript:"]:after {
+    content: "";
+  }
+}
+
+/* Paged.js specific classes */
+.pagedjs_page {
+  background: white;
+}
+
+.pagedjs_pagebox {
+  box-sizing: border-box;
+}
+
+/* Page numbers via Paged.js */
+.pagedjs_margin-bottom-center::after {
+  content: counter(page);
+}
+
+/* Document content styling - SCREEN & PRINT */
+.document-content {
+  font-family: inherit;
+  color: #1a1a1a !important;
+}
+
+/* Override Tiptap dark mode styles for document content */
+.document-content .tiptap,
+.document-content .ProseMirror {
+  color: #1a1a1a !important;
+  padding: 0 !important;
+}
+
+.document-content .tiptap p,
+.document-content .ProseMirror p,
+.document-content p {
+  color: #333333 !important;
+  margin-bottom: 10pt;
+  text-align: justify;
+  line-height: 1.6;
+}
+
+.document-content .tiptap h1,
+.document-content .ProseMirror h1,
+.document-content h1 {
+  font-size: 18pt;
+  font-weight: bold;
+  margin-top: 24pt;
+  margin-bottom: 12pt;
+  color: var(--heading-color, #0f172a) !important;
+  border-bottom: 1px solid var(--accent-color, #1e3a8a);
+  padding-bottom: 6pt;
+}
+
+.document-content .tiptap h2,
+.document-content .ProseMirror h2,
+.document-content h2 {
+  font-size: 15pt;
+  font-weight: bold;
+  margin-top: 18pt;
+  margin-bottom: 10pt;
+  color: var(--accent-color, #1e3a8a) !important;
+}
+
+.document-content .tiptap h3,
+.document-content .ProseMirror h3,
+.document-content h3 {
+  font-size: 13pt;
+  font-weight: bold;
+  margin-top: 14pt;
+  margin-bottom: 8pt;
+  color: #333333 !important;
+}
+
+.document-content .tiptap ul,
+.document-content .tiptap ol,
+.document-content .ProseMirror ul,
+.document-content .ProseMirror ol,
+.document-content ul,
+.document-content ol {
+  margin-left: 20pt;
+  margin-bottom: 10pt;
+  color: #333333 !important;
+}
+
+.document-content .tiptap li,
+.document-content .ProseMirror li,
+.document-content li {
+  margin-bottom: 4pt;
+  color: #333333 !important;
+}
+
+.document-content .tiptap blockquote,
+.document-content .ProseMirror blockquote,
+.document-content blockquote {
+  border-left: 3pt solid var(--accent-color, #1e3a8a);
+  padding-left: 12pt;
+  margin: 12pt 0;
+  font-style: italic;
+  color: #555555 !important;
+  background: rgba(30, 58, 138, 0.05) !important;
+}
+
+.document-content .tiptap pre,
+.document-content .ProseMirror pre,
+.document-content pre {
+  background: #f5f5f5 !important;
+  padding: 12pt;
+  border-radius: 4pt;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 9pt;
+  line-height: 1.4;
+  margin: 12pt 0;
+  color: #1a1a1a !important;
+}
+
+.document-content .tiptap code,
+.document-content .ProseMirror code,
+.document-content code {
+  background: #f0f0f0 !important;
+  color: #c7254e !important;
+  padding: 2pt 4pt;
+  border-radius: 2pt;
+}
+
+.document-content code {
+  background: #f0f0f0;
+  padding: 2pt 4pt;
+  border-radius: 2pt;
+  font-family: 'Courier New', monospace;
+  font-size: 10pt;
+}
+
+.document-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12pt 0;
+}
+
+.document-content th,
+.document-content td {
+  border: 1px solid #ccc;
+  padding: 8pt;
+  text-align: left;
+}
+
+.document-content th {
+  background: var(--accent-color, #1e3a8a);
+  color: white;
+  font-weight: bold;
+}
+
+.document-content tr:nth-child(even) td {
+  background: #f9f9f9;
+}
+
+.document-content hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 16pt 0;
+}
+
+/* Tiptap editor specific */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Page break marker for manual breaks */
+.page-break {
+  page-break-after: always;
+  break-after: page;
+  height: 0;
+  margin: 0;
+  border: none;
+}
+
+.page-break::before {
+  content: "— Page Break —";
+  display: block;
+  text-align: center;
+  color: #999;
+  font-size: 10px;
+  padding: 8px 0;
+  border-top: 1px dashed #ccc;
+  border-bottom: 1px dashed #ccc;
+  margin: 16px 0;
+}
+
+@media print {
+  .page-break::before {
+    display: none;
+  }
+}
