@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { JSONContent } from "@tiptap/react";
 
 // Debounce helper for syncBlocksToHtml
 let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -32,12 +33,17 @@ export interface DocumentState {
   subtitle: string;
   author: string;
   date: string;
+
+  // [NEW] Single Source of Truth - Tiptap JSON content
+  jsonContent: JSONContent | null;
+
+  // [LEGACY] Keep for backward compatibility during migration
   blocks: DocumentBlock[];
-  selectedStyle: "professional" | "academic" | "modern" | "minimal";
+  selectedStyle: string; // DocumentStyleId - flexible for all styles
   outputFormat: "docx" | "pdf";
   isProcessing: boolean;
   rawContent: string;
-  // HTML content for Tiptap WYSIWYG editor
+  // HTML content - now derived from JSON, kept for export compatibility
   htmlContent: string;
   // Editor mode toggle
   editorMode: "blocks" | "wysiwyg";
@@ -72,6 +78,8 @@ export interface DocumentState {
   markHtmlDirty: () => void;
   // Clear dirty flag after acknowledging
   clearHtmlDirty: () => void;
+  // [NEW] Set JSON content (Single Source of Truth)
+  setJsonContent: (content: JSONContent) => void;
   reset: () => void;
 }
 
@@ -117,7 +125,7 @@ function blocksToHtml(blocks: DocumentBlock[]): string {
         return `<div data-block-id="${id}" class="callout callout-${calloutStyle}">${content}</div>`;
       case 'table':
         const headers = (block.meta?.headers || []).map(h => `<th>${escapeHtml(h)}</th>`).join('');
-        const rows = (block.meta?.rows || []).map(row => 
+        const rows = (block.meta?.rows || []).map(row =>
           `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`
         ).join('');
         return `<table data-block-id="${id}"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
@@ -132,6 +140,7 @@ const initialState = {
   subtitle: "",
   author: "",
   date: "",
+  jsonContent: null as JSONContent | null,
   blocks: [] as DocumentBlock[],
   selectedStyle: "professional" as const,
   outputFormat: "docx" as const,
@@ -222,6 +231,9 @@ export const useDocumentStore = create<DocumentState>((set) => ({
 
   markHtmlDirty: () => set({ isHtmlDirty: true }),
   clearHtmlDirty: () => set({ isHtmlDirty: false }),
+
+  // [NEW] Set JSON content - Single Source of Truth
+  setJsonContent: (jsonContent) => set({ jsonContent }),
 
   reset: () => set(initialState),
 }));

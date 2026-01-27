@@ -8,10 +8,16 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import TextAlign from "@tiptap/extension-text-align";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Highlight from "@tiptap/extension-highlight";
+import Underline from "@tiptap/extension-underline";
 import {
   Bold,
   Italic,
   Strikethrough,
+  Underline as UnderlineIcon,
   List,
   ListOrdered,
   Quote,
@@ -25,12 +31,25 @@ import {
   Redo,
   Printer,
   Eye,
-  Edit3
+  Edit3,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Highlighter,
+  Palette,
+  Plus,
+  Trash2,
+  RowsIcon,
+  Columns,
+  ListTodo,
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PagedPreview } from "./PagedPreview";
+import { AIToolbar } from "./AIToolbar";
+import { extractTOC, generateTOCJson } from "@/lib/toc-generator";
 
 // A4 dimensions in mm for CSS
 const A4_WIDTH_MM = 210;
@@ -110,6 +129,13 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
             <Italic size={18} />
           </ToolbarButton>
           <ToolbarButton
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            isActive={editor.isActive("underline")}
+            title="Underline"
+          >
+            <UnderlineIcon size={18} />
+          </ToolbarButton>
+          <ToolbarButton
             onClick={() => editor.chain().focus().toggleStrike().run()}
             isActive={editor.isActive("strike")}
             title="Strikethrough"
@@ -117,11 +143,78 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
             <Strikethrough size={18} />
           </ToolbarButton>
           <ToolbarButton
+            onClick={() => editor.chain().focus().toggleHighlight().run()}
+            isActive={editor.isActive("highlight")}
+            title="Highlight"
+          >
+            <Highlighter size={18} />
+          </ToolbarButton>
+          <ToolbarButton
             onClick={() => editor.chain().focus().toggleCode().run()}
             isActive={editor.isActive("code")}
             title="Inline Code"
           >
             <Code size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Text Alignment */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            isActive={editor.isActive({ textAlign: "left" })}
+            title="Align Left"
+          >
+            <AlignLeft size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            isActive={editor.isActive({ textAlign: "center" })}
+            title="Align Center"
+          >
+            <AlignCenter size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            isActive={editor.isActive({ textAlign: "right" })}
+            title="Align Right"
+          >
+            <AlignRight size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+            isActive={editor.isActive({ textAlign: "justify" })}
+            title="Justify"
+          >
+            <AlignJustify size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Colors */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setColor("#dc2626").run()}
+            title="Red Text"
+          >
+            <span className="w-4 h-4 rounded bg-red-600" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setColor("#2563eb").run()}
+            title="Blue Text"
+          >
+            <span className="w-4 h-4 rounded bg-blue-600" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setColor("#16a34a").run()}
+            title="Green Text"
+          >
+            <span className="w-4 h-4 rounded bg-green-600" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().unsetColor().run()}
+            title="Remove Color"
+          >
+            <Palette size={18} />
           </ToolbarButton>
         </div>
 
@@ -190,6 +283,20 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
           >
             <Minus size={18} />
           </ToolbarButton>
+          <ToolbarButton
+            onClick={() => {
+              const tocItems = extractTOC(editor.getJSON());
+              if (tocItems.length === 0) {
+                alert("Không có heading nào để tạo mục lục");
+                return;
+              }
+              const tocJson = generateTOCJson(tocItems);
+              editor.chain().focus().insertContentAt(0, tocJson.content || []).run();
+            }}
+            title="Insert Table of Contents"
+          >
+            <ListTodo size={18} />
+          </ToolbarButton>
         </div>
 
         {/* Table */}
@@ -200,6 +307,36 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
           >
             <TableIcon size={18} />
           </ToolbarButton>
+          {editor.isActive("table") && (
+            <>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().addRowAfter().run()}
+                title="Add Row"
+              >
+                <Plus size={14} />
+                <RowsIcon size={14} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().addColumnAfter().run()}
+                title="Add Column"
+              >
+                <Plus size={14} />
+                <Columns size={14} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().deleteRow().run()}
+                title="Delete Row"
+              >
+                <Trash2 size={14} className="text-destructive" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().deleteTable().run()}
+                title="Delete Table"
+              >
+                <TableIcon size={14} className="text-destructive" />
+              </ToolbarButton>
+            </>
+          )}
         </div>
       </div>
 
@@ -245,7 +382,9 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     author,
     date,
     htmlContent,
+    jsonContent,
     setHtmlContent,
+    setJsonContent,
     selectedStyle,
   } = useDocumentStore();
 
@@ -268,9 +407,22 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       TableRow,
       TableHeader,
       TableCell,
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      TextStyle,
+      Color,
+      Highlight.configure({
+        multicolor: true,
+      }),
+      Underline,
     ],
-    content: htmlContent || "",
+    // Initialize from JSON (Single Source of Truth) or fall back to HTML (legacy)
+    content: jsonContent || htmlContent || "",
     onUpdate: ({ editor }) => {
+      // Save JSON as Single Source of Truth
+      setJsonContent(editor.getJSON());
+      // Also save HTML for backward compatibility (export, preview)
       setHtmlContent(editor.getHTML(), true);
     },
     editorProps: {
@@ -280,12 +432,23 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     },
   });
 
-  // Sync content from store when it changes externally
+  // Sync content from store when it changes externally (e.g., AI analysis)
+  // Prioritize JSON content over HTML
   useEffect(() => {
-    if (editor && htmlContent !== editor.getHTML()) {
-      editor.commands.setContent(htmlContent || "");
+    if (!editor) return;
+
+    // If jsonContent exists and differs from editor, update from JSON
+    if (jsonContent) {
+      const currentJson = JSON.stringify(editor.getJSON());
+      const storeJson = JSON.stringify(jsonContent);
+      if (currentJson !== storeJson) {
+        editor.commands.setContent(jsonContent);
+      }
+    } else if (htmlContent && htmlContent !== editor.getHTML()) {
+      // Fallback to HTML for legacy documents
+      editor.commands.setContent(htmlContent);
     }
-  }, [htmlContent, editor]);
+  }, [jsonContent, htmlContent, editor]);
 
   const handlePrint = useCallback(() => {
     // Switch to preview mode first for accurate output
@@ -299,29 +462,19 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     }, 500);
   }, [onPrint]);
 
-  // Get style config
+  // Get style config from centralized styles
   const getStyleConfig = () => {
-    const configs = {
-      professional: {
-        fontFamily: "'Times New Roman', serif",
-        headingColor: "#0f172a",
-        accentColor: "#1e3a8a",
-      },
-      academic: {
-        fontFamily: "'Times New Roman', serif",
-        headingColor: "#000000",
-        accentColor: "#000000",
-      },
-      modern: {
-        fontFamily: "Arial, sans-serif",
-        headingColor: "#2563eb",
-        accentColor: "#0ea5e9",
-      },
-      minimal: {
-        fontFamily: "Calibri, sans-serif",
-        headingColor: "#171717",
-        accentColor: "#737373",
-      },
+    const configs: Record<string, { fontFamily: string; headingColor: string; accentColor: string }> = {
+      professional: { fontFamily: "'Times New Roman', serif", headingColor: "#0f172a", accentColor: "#1e3a8a" },
+      academic: { fontFamily: "'Times New Roman', serif", headingColor: "#000000", accentColor: "#000000" },
+      modern: { fontFamily: "Arial, sans-serif", headingColor: "#2563eb", accentColor: "#0ea5e9" },
+      minimal: { fontFamily: "Calibri, sans-serif", headingColor: "#171717", accentColor: "#737373" },
+      elegant: { fontFamily: "'Georgia', serif", headingColor: "#78350f", accentColor: "#b45309" },
+      corporate: { fontFamily: "'Helvetica Neue', Arial, sans-serif", headingColor: "#312e81", accentColor: "#4338ca" },
+      creative: { fontFamily: "'Poppins', sans-serif", headingColor: "#be185d", accentColor: "#ec4899" },
+      newsletter: { fontFamily: "'Merriweather', Georgia, serif", headingColor: "#0d9488", accentColor: "#14b8a6" },
+      resume: { fontFamily: "'Roboto', Arial, sans-serif", headingColor: "#047857", accentColor: "#059669" },
+      technical: { fontFamily: "'Consolas', 'Monaco', monospace", headingColor: "#c2410c", accentColor: "#ea580c" },
     };
     return configs[selectedStyle] || configs.professional;
   };
@@ -356,6 +509,9 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <EditorToolbar editor={editor} viewMode={viewMode} onViewModeChange={setViewMode} />
+
+      {/* AI Toolbar - Premium Features */}
+      <AIToolbar editor={editor} />
 
       {/* Scrollable Document View */}
       <div className="flex-1 overflow-auto bg-neutral-200 dark:bg-neutral-800 py-8">

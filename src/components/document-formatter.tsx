@@ -1,34 +1,30 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
-  FileDown,
   Wand2,
   FileText,
   LayoutTemplate,
-  Eye,
   Edit3,
   Loader2,
-  Settings2,
-  PanelLeftClose,
-  PanelLeft,
   ChevronLeft,
   Sparkles,
   Download,
   Palette,
-  Type,
   LayoutList,
+  FileCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
 import { OutlinePanel } from "@/components/editor/outline-panel";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import { TemplatesPanel } from "@/components/templates/templates-panel";
-import { useDocumentStore, DocumentBlock } from "@/store/document-store";
-import { analyzeContent, formatStructure, downloadBlob } from "@/lib/api";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useDocumentStore } from "@/store/document-store";
+import { analyzeContent, analyzeTiptapContent, formatStructure, downloadBlob } from "@/lib/api";
+import { jsonToMarkdown, downloadMarkdown } from "@/lib/markdown-exporter";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "input" | "editor";
@@ -52,9 +48,6 @@ export function DocumentFormatter() {
     setAuthor,
     date,
     setDate,
-    blocks,
-    setBlocks,
-    updateBlock,
     selectedStyle,
     setSelectedStyle,
     outputFormat,
@@ -64,30 +57,9 @@ export function DocumentFormatter() {
     rawContent,
     setRawContent,
     htmlContent,
-    setHtmlContent,
-    editorMode,
-    setEditorMode,
-    // Sync-related
-    blocksVersion,
-    lastSyncedVersion,
-    isHtmlDirty,
-    syncBlocksToHtml,
-    clearHtmlDirty,
+    setJsonContent,
+    jsonContent,
   } = useDocumentStore();
-
-  // ============================================
-  // REACTIVE ONE-WAY SYNC: blocks -> htmlContent
-  // ============================================
-  // When blocks change (blocksVersion increments), auto-sync to HTML
-  // This ensures WYSIWYG always has up-to-date content from Block Editor
-  useEffect(() => {
-    // Only sync if blocks have changed since last sync
-    if (blocksVersion > lastSyncedVersion && blocks.length > 0) {
-      // If user has dirty WYSIWYG edits, we could warn them here
-      // For now, we auto-sync (Structure > Format per spec)
-      syncBlocksToHtml();
-    }
-  }, [blocksVersion, lastSyncedVersion, blocks.length, syncBlocksToHtml]);
 
   const handleAnalyze = useCallback(async () => {
     if (!rawContent.trim()) {
@@ -99,72 +71,89 @@ export function DocumentFormatter() {
     setError(null);
 
     try {
-      const result = await analyzeContent(rawContent);
+      // Use new Tiptap JSON endpoint for direct editor integration
+      const result = await analyzeTiptapContent(rawContent);
 
+      // Set document metadata
       setTitle(result.title || "");
       setSubtitle(result.subtitle || "");
       setAuthor(result.author || "");
       setDate(result.date || "");
 
-      const newBlocks: DocumentBlock[] = result.elements.map((el, index) => ({
-        id: `block-${Date.now()}-${index}`,
-        type: el.type as DocumentBlock["type"],
-        content: el.content || "",
-        meta: {
-          listStyle: el.style as "bullet" | "numbered",
-          items: el.items,
-          language: el.language,
-          calloutStyle: el.style as "info" | "warning" | "success" | "note",
-          author: el.author,
-          headers: el.headers,
-          rows: el.rows,
-          caption: el.caption,
-        },
-      }));
-
-      setBlocks(newBlocks);
-
-      // IMMEDIATELY sync blocks to HTML so WYSIWYG has content
-      // This fixes the "Blank Tab" issue when switching to WYSIWYG for the first time
-      // Note: setBlocks triggers blocksVersion increment, useEffect will handle sync
-      // But we call syncBlocksToHtml explicitly here for immediate availability
-      setTimeout(() => {
-        useDocumentStore.getState().syncBlocksToHtml();
-      }, 0);
+      // Set Tiptap JSON directly - Single Source of Truth
+      // No intermediate blocks conversion needed!
+      if (result.tiptap_json) {
+        setJsonContent(result.tiptap_json);
+      }
 
       setViewMode("editor");
     } catch (err) {
-      setError("Failed to analyze content. Make sure the backend is running.");
-      console.error(err);
+      // Fallback to legacy endpoint if Tiptap endpoint fails
+      console.warn("Tiptap endpoint failed, falling back to legacy", err);
+      try {
+        const result = await analyzeContent(rawContent);
+        setTitle(result.title || "");
+        setSubtitle(result.subtitle || "");
+        setAuthor(result.author || "");
+        setDate(result.date || "");
+
+        // Convert legacy elements to Tiptap JSON format
+        const tiptapContent = result.elements.map((el) => {
+          if (el.type === "heading1") {
+            return { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: el.content || "" }] };
+          } else if (el.type === "heading2") {
+            return { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: el.content || "" }] };
+          } else if (el.type === "heading3") {
+            return { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: el.content || "" }] };
+          } else if (el.type === "list") {
+            const listType = el.style === "numbered" ? "orderedList" : "bulletList";
+            const items = (el.items || []).map((item) => ({
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text: item }] }]
+            }));
+            return { type: listType, content: items };
+          } else if (el.type === "quote") {
+            return { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: el.content || "" }] }] };
+          } else if (el.type === "code_block") {
+            return { type: "codeBlock", attrs: { language: el.language || null }, content: [{ type: "text", text: el.content || "" }] };
+          } else {
+            return { type: "paragraph", content: el.content ? [{ type: "text", text: el.content }] : [] };
+          }
+        });
+
+        setJsonContent({ type: "doc", content: tiptapContent });
+        setViewMode("editor");
+      } catch (fallbackErr) {
+        setError("Failed to analyze content. Make sure the backend is running.");
+        console.error(fallbackErr);
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [rawContent, setIsProcessing, setTitle, setSubtitle, setAuthor, setDate, setBlocks]);
+  }, [rawContent, setIsProcessing, setTitle, setSubtitle, setAuthor, setDate, setJsonContent]);
+
 
   const handleExport = useCallback(async () => {
     setIsProcessing(true);
     setError(null);
 
     try {
+      // Create minimal structure for metadata (elements are now in htmlContent)
       const structure = {
         title,
         subtitle,
         author,
         date,
-        elements: blocks.map((block) => ({
-          type: block.type,
-          content: block.content,
-          style: block.meta?.listStyle || block.meta?.calloutStyle,
-          items: block.meta?.items,
-          language: block.meta?.language,
-          author: block.meta?.author,
-          headers: block.meta?.headers,
-          rows: block.meta?.rows,
-          caption: block.meta?.caption,
-        })),
+        elements: [], // Empty - we use htmlContent as the source of truth
       };
 
-      const blob = await formatStructure(structure, selectedStyle, outputFormat);
+      // Pass htmlContent for BOTH PDF and DOCX to capture editor content
+      const blob = await formatStructure(
+        structure,
+        selectedStyle,
+        outputFormat,
+        htmlContent // Always pass htmlContent - it's our Single Source of Truth
+      );
       downloadBlob(blob, `formatted_document.${outputFormat}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -173,13 +162,19 @@ export function DocumentFormatter() {
     } finally {
       setIsProcessing(false);
     }
-  }, [title, subtitle, author, date, blocks, selectedStyle, outputFormat, setIsProcessing]);
+  }, [title, subtitle, author, date, selectedStyle, outputFormat, htmlContent, setIsProcessing]);
 
   const handleTemplateSelect = (content: string, style: any) => {
     setRawContent(content);
     setSelectedStyle(style);
     setActiveTab("paste");
   };
+
+  const handleExportMarkdown = useCallback(() => {
+    const markdown = jsonToMarkdown(jsonContent);
+    const fullMarkdown = `# ${title}\n\n${subtitle ? `*${subtitle}*\n\n` : ""}${author ? `By: ${author}\n` : ""}${date ? `Date: ${date}\n\n` : ""}---\n\n${markdown}`;
+    downloadMarkdown(fullMarkdown, `${title || "document"}.md`);
+  }, [jsonContent, title, subtitle, author, date]);
 
   // --- LANDING VIEW (INPUT) ---
   if (viewMode === "input") {
@@ -327,6 +322,22 @@ export function DocumentFormatter() {
               PDF
             </button>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* Markdown Export */}
+          <Button
+            onClick={handleExportMarkdown}
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            title="Export as Markdown"
+          >
+            <FileCode size={14} />
+            .md
+          </Button>
+
           <Button
             onClick={handleExport}
             disabled={isProcessing}
@@ -461,7 +472,7 @@ export function DocumentFormatter() {
               Page View
             </span>
             <span className="text-[10px] text-muted-foreground">
-              {blocks.length} blocks • {selectedStyle}
+              {selectedStyle} style
             </span>
           </div>
 

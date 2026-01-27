@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useDocumentStore } from "@/store/document-store";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStyleConfig } from "@/lib/document-styles";
-
-// A4 dimensions for display
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
-const A4_MARGIN_MM = 25;
+import { DocumentPrintLayout } from "@/components/print/DocumentPrintLayout";
 
 interface PagedPreviewProps {
     onBackToEdit?: () => void;
@@ -26,12 +22,10 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
     } = useDocumentStore();
 
     const previewContainerRef = useRef<HTMLDivElement>(null);
-    const sourceRef = useRef<HTMLDivElement>(null); // New ref for React rendered source
+    const sourceRef = useRef<HTMLDivElement>(null);
     const [isRendering, setIsRendering] = useState(true);
     const [pageCount, setPageCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
-
-
 
     const styleConfig = getStyleConfig(selectedStyle);
 
@@ -42,57 +36,67 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
         setIsRendering(true);
         setError(null);
 
+        // Clear previous output
+        previewContainerRef.current.innerHTML = '';
+
         try {
-            // Clear previous content
-            previewContainerRef.current.innerHTML = '';
-
-            // Dynamically import Paged.js (client-side only)
+            // Dynamic import of Paged.js (client-side only)
             const { Previewer } = await import('pagedjs');
-
+            
             const previewer = new Previewer();
+            
+            // Get HTML from the hidden source rendered by React
+            const sourceHTML = sourceRef.current.innerHTML;
 
-            // Use the HTML rendered by React in the hidden source div
-            const fullHTML = sourceRef.current.innerHTML;
-
-            // Use Paged.js to paginate - pass HTML string and render target
+            // Paged.js pagination - renders paginated content into the container
             await previewer.preview(
-                fullHTML,
-                [], // stylesheets array (we use inline styles)
+                sourceHTML,
+                [], // stylesheets included via global CSS
                 previewContainerRef.current
             );
 
-            // Get page count
+            // Count pages
             const pages = previewContainerRef.current.querySelectorAll('.pagedjs_page');
             setPageCount(pages.length);
 
         } catch (err) {
-            console.error('Paged.js rendering error:', err);
-            setError('Failed to render preview. Please try again.');
+            console.error("Paged.js pagination failed:", err);
+            setError("Pagination failed. Showing fallback preview.");
+            
+            // Fallback: just copy the source content
+            if (previewContainerRef.current && sourceRef.current) {
+                previewContainerRef.current.innerHTML = `
+                    <div class="fallback-preview" style="background: white; padding: 25mm; max-width: 210mm; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        ${sourceRef.current.innerHTML}
+                    </div>
+                `;
+                setPageCount(1);
+            }
         } finally {
             setIsRendering(false);
         }
-    }, []); // No dependencies needed as we read from DOM
+    }, []);
 
-    // Initial render when data changes
+    // Trigger render when content changes
     useEffect(() => {
-        // Debounce render to allow React to update sourceRef first
+        // Debounce to allow React to update sourceRef first
         const timer = setTimeout(() => {
             renderPreview();
-        }, 100);
+        }, 150);
         return () => clearTimeout(timer);
     }, [title, subtitle, author, date, htmlContent, selectedStyle, renderPreview]);
 
     return (
         <div className="flex flex-col h-full">
-            {/* Hidden Source for Paged.js (React renders this) */}
-            <div className="hidden">
+            {/* Hidden Source: This is what we feed to Paged.js */}
+            <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
                 <DocumentPrintLayout
                     ref={sourceRef}
                     title={title}
                     subtitle={subtitle}
                     author={author}
                     date={date}
-                    htmlContent={htmlContent}
+                    htmlContent={htmlContent || '<p>No content yet.</p>'}
                     styleConfig={styleConfig}
                 />
             </div>
@@ -109,7 +113,7 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
                     </Button>
                     <div className="h-4 w-px bg-border" />
                     <span className="text-sm text-muted-foreground">
-                        {isRendering ? 'Rendering...' : `${pageCount} pages`}
+                        {isRendering ? 'Rendering...' : `${pageCount} page${pageCount !== 1 ? 's' : ''}`}
                     </span>
                 </div>
                 <Button
@@ -132,12 +136,9 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
                     </div>
                 )}
 
-                {error && (
-                    <div className="flex flex-col items-center justify-center h-64 text-red-500">
-                        <p>{error}</p>
-                        <Button variant="outline" className="mt-4" onClick={renderPreview}>
-                            Try Again
-                        </Button>
+                {error && !isRendering && (
+                    <div className="text-center text-amber-600 text-sm mb-4">
+                        {error}
                     </div>
                 )}
 
@@ -153,7 +154,5 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
         </div>
     );
 }
-
-import { DocumentPrintLayout } from "@/components/print/DocumentPrintLayout";
 
 export default PagedPreview;
