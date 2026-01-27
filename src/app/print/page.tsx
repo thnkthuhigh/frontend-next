@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { DocumentPreview } from "@/components/preview/document-preview";
 import { useDocumentStore } from "@/store/document-store";
+import { DocumentPrintLayout } from "@/components/print/DocumentPrintLayout";
+import { getStyleConfig } from "@/lib/document-styles";
 
 // A4 dimensions in mm
-const A4_WIDTH = 210;
-const A4_HEIGHT = 297;
 const MARGIN = 25;
 
 export default function PrintPage() {
-  const { 
+  const {
     title, subtitle, author, date, htmlContent, selectedStyle, editorMode,
-    setTitle, setSubtitle, setAuthor, setDate, setBlocks, setSelectedStyle, setHtmlContent 
+    setTitle, setSubtitle, setAuthor, setDate, setBlocks, setSelectedStyle, setHtmlContent
   } = useDocumentStore();
   const [isReady, setIsReady] = useState(false);
   const [isPagedJsReady, setIsPagedJsReady] = useState(false);
@@ -51,30 +50,33 @@ export default function PrintPage() {
     if (isReady && typeof window !== 'undefined' && sourceRef.current) {
       const initPagination = async () => {
         try {
+          // Wait a tick for React to render the source layout
+          await new Promise(resolve => setTimeout(resolve, 100));
+
           // Dynamically import Paged.js
           const { Previewer } = await import('pagedjs');
           const previewer = new Previewer();
-          
-          // Get source HTML
+
+          // Get source HTML from the Shared Component!
           const sourceHTML = sourceRef.current!.innerHTML;
-          
+
           // Hide source content
           sourceRef.current!.style.display = 'none';
-          
+
           console.log("Starting Paged.js pagination...");
           const flow = await previewer.preview(
             sourceHTML,
             [], // stylesheets
             contentRef.current! // render target
           );
-          
+
           console.log("✅ Paged.js rendered", flow.total, "pages");
-          
+
           // Signal to Playwright that pagination is complete
           (window as any).isPagedJsReady = true;
           setIsPagedJsReady(true);
           setRenderMode('pagedjs');
-          
+
           // Dispatch event for additional listeners
           window.dispatchEvent(new Event('pagedjs-ready'));
         } catch (err) {
@@ -85,40 +87,14 @@ export default function PrintPage() {
           setIsPagedJsReady(true);
         }
       };
-      
-      // Wait for DOM to settle
-      setTimeout(initPagination, 500);
+
+      initPagination();
     }
   }, [isReady]);
 
-  // Get style config
-  const getStyleConfig = () => {
-    const configs: Record<string, { fontFamily: string; headingColor: string; accentColor: string }> = {
-      professional: {
-        fontFamily: "'Times New Roman', serif",
-        headingColor: "#0f172a",
-        accentColor: "#1e3a8a",
-      },
-      academic: {
-        fontFamily: "'Times New Roman', serif",
-        headingColor: "#000000",
-        accentColor: "#000000",
-      },
-      modern: {
-        fontFamily: "Arial, sans-serif",
-        headingColor: "#2563eb",
-        accentColor: "#0ea5e9",
-      },
-      minimal: {
-        fontFamily: "Calibri, sans-serif",
-        headingColor: "#171717",
-        accentColor: "#737373",
-      },
-    };
-    return configs[selectedStyle] || configs.professional;
-  };
 
-  const styleConfig = getStyleConfig();
+
+  const styleConfig = getStyleConfig(selectedStyle);
 
   if (!isReady) {
     return (
@@ -126,18 +102,6 @@ export default function PrintPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading print data...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Show pagination status
-  if (editorMode === "wysiwyg" && htmlContent && !isPagedJsReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Rendering pages with Paged.js...</p>
         </div>
       </div>
     );
@@ -158,88 +122,9 @@ export default function PrintPage() {
           margin: ${MARGIN}mm;
         }
         
-        /* Cover page - full height centered content */
-        .cover-page {
-          page-break-after: always;
-          break-after: page;
-          min-height: calc(${A4_HEIGHT - 2 * MARGIN}mm);
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          text-align: center;
-        }
-        
-        /* Content styling */
-        .print-content h1 { 
-          font-size: 18pt; 
-          font-weight: bold;
-          margin-top: 18pt;
-          margin-bottom: 10pt;
-          color: ${styleConfig.headingColor};
-          border-bottom: 1px solid ${styleConfig.accentColor};
-          padding-bottom: 4pt;
-        }
-        .print-content h2 { 
-          font-size: 14pt; 
-          font-weight: bold;
-          margin-top: 14pt;
-          margin-bottom: 8pt;
-          color: ${styleConfig.accentColor};
-        }
-        .print-content h3 { 
-          font-size: 12pt; 
-          font-weight: bold;
-          margin-top: 12pt;
-          margin-bottom: 6pt;
-          color: #333;
-        }
-        .print-content p { 
-          font-size: 11pt; 
-          line-height: 1.6;
-          margin-bottom: 8pt;
-          text-align: justify;
-          color: #333;
-        }
-        .print-content ul, .print-content ol { 
-          margin-left: 20pt;
-          margin-bottom: 8pt;
-        }
-        .print-content li { 
-          margin-bottom: 4pt;
-          color: #333;
-        }
-        .print-content blockquote {
-          border-left: 3pt solid ${styleConfig.accentColor};
-          padding-left: 12pt;
-          margin: 10pt 0;
-          font-style: italic;
-          color: #555;
-        }
-        .print-content table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 10pt 0;
-        }
-        .print-content th, .print-content td {
-          border: 1px solid #ccc;
-          padding: 6pt;
-        }
-        .print-content th {
-          background: ${styleConfig.accentColor};
-          color: white;
-        }
-        .print-content pre {
-          background: #f5f5f5;
-          padding: 10pt;
-          font-family: monospace;
-          font-size: 9pt;
-          overflow-x: auto;
-        }
-        
         /* Pagedjs container */
         .pagedjs_pages {
-          width: ${A4_WIDTH}mm;
+          width: 210mm;
           margin: 0 auto;
         }
         .pagedjs_page {
@@ -255,94 +140,36 @@ export default function PrintPage() {
           }
         }
       `}</style>
-      
-      {/* Render based on editor mode */}
-      {editorMode === "wysiwyg" && htmlContent ? (
-        <>
-          {/* Source content for Paged.js (hidden after processing) */}
-          <div ref={sourceRef} className="print-source print-page">
-            {/* Cover Page */}
-            <div className="cover-page">
-              <h1 style={{ 
-                fontSize: '24pt', 
-                fontWeight: 'bold',
-                color: styleConfig.headingColor,
-                marginBottom: '16pt'
-              }}>
-                {title || "Untitled Document"}
-              </h1>
-              {subtitle && (
-                <h2 style={{ 
-                  fontSize: '14pt', 
-                  fontStyle: 'italic',
-                  color: styleConfig.accentColor,
-                  marginBottom: '24pt'
-                }}>
-                  {subtitle}
-                </h2>
-              )}
-              <div style={{ 
-                width: '60pt', 
-                height: '2pt', 
-                background: styleConfig.accentColor,
-                margin: '16pt 0'
-              }} />
-              <div style={{ fontSize: '11pt', color: '#666', marginTop: '24pt' }}>
-                {author && <p style={{ margin: '4pt 0' }}>{author}</p>}
-                {date && <p style={{ margin: '4pt 0' }}>{date}</p>}
-              </div>
-            </div>
-            
-            {/* Main Content */}
-            <div 
-              className="print-content"
-              style={{ fontFamily: styleConfig.fontFamily }}
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
-          </div>
-          
-          {/* Paged.js render target */}
-          <div ref={contentRef} className="pagedjs-container print-page" />
-          
-          {/* Fallback CSS pagination view */}
-          {renderMode === 'css' && (
-            <div 
-              className="css-pagination-fallback print-page"
-              style={{
-                width: `${A4_WIDTH}mm`,
-                margin: '0 auto',
-                padding: `${MARGIN}mm`,
-                fontFamily: styleConfig.fontFamily,
-                background: 'white',
-              }}
-            >
-              {/* Cover */}
-              <div className="cover-page">
-                <h1 style={{ fontSize: '24pt', color: styleConfig.headingColor }}>
-                  {title || "Untitled Document"}
-                </h1>
-                {subtitle && (
-                  <h2 style={{ fontSize: '14pt', color: styleConfig.accentColor, fontStyle: 'italic' }}>
-                    {subtitle}
-                  </h2>
-                )}
-                <div style={{ marginTop: '24pt', fontSize: '11pt', color: '#666' }}>
-                  {author && <p>{author}</p>}
-                  {date && <p>{date}</p>}
-                </div>
-              </div>
-              
-              {/* Content */}
-              <div 
-                className="print-content"
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
-              />
-            </div>
-          )}
-        </>
-      ) : (
-        /* Legacy Block-based preview */
-        <DocumentPreview scale={1} />
+
+      {/* 
+         Render the shared layout into a hidden "source" div.
+         Paged.js will read this HTML and paginate it into contentRef.
+      */}
+      <div className="print-source-container">
+        <DocumentPrintLayout
+          ref={sourceRef}
+          title={title}
+          subtitle={subtitle}
+          author={author}
+          date={date}
+          htmlContent={htmlContent}
+          styleConfig={styleConfig}
+        />
+      </div>
+
+      {/* Paged.js render target */}
+      <div ref={contentRef} className="pagedjs-container print-page" />
+
+      {/* Fallback CSS pagination view - reusing duplicate layout logic? 
+          Actually, if Paged.js fails, we can just show the sourceRef content naturally.
+          But for now let's keep it simple. If Paged.js fails, sourceRef is hidden.
+          We can toggle it back visible.
+      */}
+      {renderMode === 'css' && (
+        <div style={{ padding: '25mm' }}>
+          <p className="text-red-500 mb-4 print:hidden">⚠️ Formatting Engine Failed - Using basic view</p>
+          <div dangerouslySetInnerHTML={{ __html: sourceRef.current?.innerHTML || '' }} />
+        </div>
       )}
     </div>
   );

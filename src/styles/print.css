@@ -163,6 +163,148 @@
   content: counter(page);
 }
 
+/* ============================================
+   PAGED.JS PREVIEW STYLES (Screen View)
+   ============================================ */
+
+/* Container for all rendered pages */
+.paged-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 16px;
+}
+
+/* Each rendered page */
+.paged-preview-container .pagedjs_page {
+  background: white !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  position: relative;
+}
+
+/* Page size enforcement */
+.paged-preview-container .pagedjs_page {
+  width: 210mm !important;
+  height: 297mm !important;
+  overflow: hidden;
+}
+
+/* Page margins (content area) */
+.paged-preview-container .pagedjs_pagebox {
+  padding: 25mm !important;
+}
+
+/* Page number badge on each page */
+.paged-preview-container .pagedjs_page::after {
+  content: 'Page ' counter(page);
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: #9ca3af;
+  font-family: system-ui, sans-serif;
+}
+
+/* Page break indicator between pages */
+.paged-preview-container .pagedjs_page:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #60a5fa, transparent);
+}
+
+/* Ensure proper text rendering */
+.paged-preview-container .pagedjs_area {
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1a1a1a;
+}
+
+/* Cover page styling within Paged.js */
+.paged-preview-container .cover-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 100%;
+}
+
+/* Document content within Paged.js preview */
+.paged-preview-container .document-content h1 {
+  font-size: 18pt;
+  font-weight: bold;
+  margin-top: 24pt;
+  margin-bottom: 12pt;
+  color: var(--heading-color, #0f172a);
+  border-bottom: 1px solid var(--accent-color, #1e3a8a);
+  padding-bottom: 6pt;
+}
+
+.paged-preview-container .document-content h2 {
+  font-size: 15pt;
+  font-weight: bold;
+  margin-top: 18pt;
+  margin-bottom: 10pt;
+  color: var(--accent-color, #1e3a8a);
+}
+
+.paged-preview-container .document-content h3 {
+  font-size: 13pt;
+  font-weight: bold;
+  margin-top: 14pt;
+  margin-bottom: 8pt;
+  color: #333333;
+}
+
+.paged-preview-container .document-content p {
+  margin-bottom: 10pt;
+  text-align: justify;
+  color: #333333;
+}
+
+.paged-preview-container .document-content ul,
+.paged-preview-container .document-content ol {
+  margin-left: 20pt;
+  margin-bottom: 10pt;
+}
+
+.paged-preview-container .document-content li {
+  margin-bottom: 4pt;
+  color: #333333;
+}
+
+.paged-preview-container .document-content blockquote {
+  border-left: 3pt solid var(--accent-color, #1e3a8a);
+  padding-left: 12pt;
+  margin: 12pt 0;
+  font-style: italic;
+  color: #555555;
+  background: rgba(30, 58, 138, 0.05);
+}
+
+.paged-preview-container .document-content pre {
+  background: #f5f5f5;
+  padding: 12pt;
+  border-radius: 4pt;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 9pt;
+  margin: 12pt 0;
+}
+
+.paged-preview-container .document-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12pt 0;
+}
+
 /* Document content styling - SCREEN & PRINT */
 .document-content {
   font-family: inherit;

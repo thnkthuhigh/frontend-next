@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -23,11 +23,14 @@ import {
   Minus,
   Undo,
   Redo,
-  Printer
+  Printer,
+  Eye,
+  Edit3
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PagedPreview } from "./PagedPreview";
 
 // A4 dimensions in mm for CSS
 const A4_WIDTH_MM = 210;
@@ -61,136 +64,171 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
   );
 }
 
-function EditorToolbar({ editor }: { editor: Editor | null }) {
+function EditorToolbar({ editor, viewMode, onViewModeChange }: {
+  editor: Editor | null;
+  viewMode: "edit" | "preview";
+  onViewModeChange: (mode: "edit" | "preview") => void;
+}) {
   if (!editor) return null;
 
   return (
-    <div className="flex items-center gap-1 p-2 border-b border-border bg-card/50 flex-wrap">
-      {/* History */}
-      <div className="flex items-center gap-0.5 pr-2 border-r border-border">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          title="Undo"
-        >
-          <Undo size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          title="Redo"
-        >
-          <Redo size={18} />
-        </ToolbarButton>
+    <div className="flex items-center justify-between p-2 border-b border-border bg-card/50">
+      {/* Left: Formatting tools (only visible in edit mode) */}
+      <div className={cn("flex items-center gap-1 flex-wrap", viewMode === "preview" && "opacity-50 pointer-events-none")}>
+        {/* History */}
+        <div className="flex items-center gap-0.5 pr-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            title="Undo"
+          >
+            <Undo size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            title="Redo"
+          >
+            <Redo size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Text Formatting */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            isActive={editor.isActive("bold")}
+            title="Bold"
+          >
+            <Bold size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            isActive={editor.isActive("italic")}
+            title="Italic"
+          >
+            <Italic size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            isActive={editor.isActive("strike")}
+            title="Strikethrough"
+          >
+            <Strikethrough size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            isActive={editor.isActive("code")}
+            title="Inline Code"
+          >
+            <Code size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Headings */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            isActive={editor.isActive("heading", { level: 1 })}
+            title="Heading 1"
+          >
+            <Heading1 size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            isActive={editor.isActive("heading", { level: 2 })}
+            title="Heading 2"
+          >
+            <Heading2 size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            isActive={editor.isActive("heading", { level: 3 })}
+            title="Heading 3"
+          >
+            <Heading3 size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Lists */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            isActive={editor.isActive("bulletList")}
+            title="Bullet List"
+          >
+            <List size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            isActive={editor.isActive("orderedList")}
+            title="Numbered List"
+          >
+            <ListOrdered size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Block Elements */}
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            isActive={editor.isActive("blockquote")}
+            title="Quote"
+          >
+            <Quote size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            isActive={editor.isActive("codeBlock")}
+            title="Code Block"
+          >
+            <Code size={18} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            title="Horizontal Rule"
+          >
+            <Minus size={18} />
+          </ToolbarButton>
+        </div>
+
+        {/* Table */}
+        <div className="flex items-center gap-0.5 px-2">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            title="Insert Table"
+          >
+            <TableIcon size={18} />
+          </ToolbarButton>
+        </div>
       </div>
 
-      {/* Text Formatting */}
-      <div className="flex items-center gap-0.5 px-2 border-r border-border">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          isActive={editor.isActive("bold")}
-          title="Bold"
+      {/* Right: View Mode Toggle */}
+      <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1">
+        <button
+          onClick={() => onViewModeChange("edit")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+            viewMode === "edit"
+              ? "bg-card shadow text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
         >
-          <Bold size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          isActive={editor.isActive("italic")}
-          title="Italic"
+          <Edit3 size={14} />
+          Edit
+        </button>
+        <button
+          onClick={() => onViewModeChange("preview")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+            viewMode === "preview"
+              ? "bg-card shadow text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
         >
-          <Italic size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          isActive={editor.isActive("strike")}
-          title="Strikethrough"
-        >
-          <Strikethrough size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          isActive={editor.isActive("code")}
-          title="Inline Code"
-        >
-          <Code size={18} />
-        </ToolbarButton>
-      </div>
-
-      {/* Headings */}
-      <div className="flex items-center gap-0.5 px-2 border-r border-border">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          isActive={editor.isActive("heading", { level: 1 })}
-          title="Heading 1"
-        >
-          <Heading1 size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive("heading", { level: 2 })}
-          title="Heading 2"
-        >
-          <Heading2 size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          isActive={editor.isActive("heading", { level: 3 })}
-          title="Heading 3"
-        >
-          <Heading3 size={18} />
-        </ToolbarButton>
-      </div>
-
-      {/* Lists */}
-      <div className="flex items-center gap-0.5 px-2 border-r border-border">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          isActive={editor.isActive("bulletList")}
-          title="Bullet List"
-        >
-          <List size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          isActive={editor.isActive("orderedList")}
-          title="Numbered List"
-        >
-          <ListOrdered size={18} />
-        </ToolbarButton>
-      </div>
-
-      {/* Block Elements */}
-      <div className="flex items-center gap-0.5 px-2 border-r border-border">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          isActive={editor.isActive("blockquote")}
-          title="Quote"
-        >
-          <Quote size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          isActive={editor.isActive("codeBlock")}
-          title="Code Block"
-        >
-          <Code size={18} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          title="Horizontal Rule"
-        >
-          <Minus size={18} />
-        </ToolbarButton>
-      </div>
-
-      {/* Table */}
-      <div className="flex items-center gap-0.5 px-2">
-        <ToolbarButton
-          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          title="Insert Table"
-        >
-          <TableIcon size={18} />
-        </ToolbarButton>
+          <Eye size={14} />
+          Preview
+        </button>
       </div>
     </div>
   );
@@ -211,7 +249,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     selectedStyle,
   } = useDocumentStore();
 
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -250,14 +288,18 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   }, [htmlContent, editor]);
 
   const handlePrint = useCallback(() => {
-    if (onPrint) {
-      onPrint();
-    } else {
-      window.print();
-    }
+    // Switch to preview mode first for accurate output
+    setViewMode("preview");
+    setTimeout(() => {
+      if (onPrint) {
+        onPrint();
+      } else {
+        window.print();
+      }
+    }, 500);
   }, [onPrint]);
 
-  // Get style config based on selected style
+  // Get style config
   const getStyleConfig = () => {
     const configs = {
       professional: {
@@ -286,10 +328,34 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
 
   const styleConfig = getStyleConfig();
 
+  // If in preview mode, show PagedPreview component
+  if (viewMode === "preview") {
+    return (
+      <div className="flex flex-col h-full">
+        <EditorToolbar editor={editor} viewMode={viewMode} onViewModeChange={setViewMode} />
+        <div className="flex-1 overflow-hidden">
+          <PagedPreview onBackToEdit={() => setViewMode("edit")} />
+        </div>
+        {/* Print Button */}
+        <div className="fixed bottom-6 right-6 print:hidden z-50">
+          <Button
+            onClick={handlePrint}
+            size="lg"
+            className="shadow-xl bg-primary hover:bg-primary/90"
+          >
+            <Printer className="mr-2" size={20} />
+            Print / Export PDF
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Edit mode - continuous scroll editor
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <EditorToolbar editor={editor} />
+      <EditorToolbar editor={editor} viewMode={viewMode} onViewModeChange={setViewMode} />
 
       {/* Scrollable Document View */}
       <div className="flex-1 overflow-auto bg-neutral-200 dark:bg-neutral-800 py-8">
@@ -344,26 +410,15 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
             <div className="flex-1 h-px bg-blue-300" />
           </div>
 
-          {/* ===== CONTENT PAGE - Continuous Scroll with Visual Page Breaks ===== */}
+          {/* ===== CONTENT PAGE - Continuous Scroll ===== */}
           <div
-            ref={editorContainerRef}
-            className="bg-white shadow-xl document-page wysiwyg-content-page"
+            className="bg-white shadow-xl document-page"
             style={{
               width: `${A4_WIDTH_MM}mm`,
               minHeight: `297mm`,
               padding: `${A4_MARGIN_MM}mm`,
               fontFamily: styleConfig.fontFamily,
               boxSizing: 'border-box',
-              // Visual page break lines every A4 content height
-              backgroundImage: `repeating-linear-gradient(
-                to bottom,
-                transparent 0mm,
-                transparent ${A4_CONTENT_HEIGHT_MM}mm,
-                rgba(59, 130, 246, 0.15) ${A4_CONTENT_HEIGHT_MM}mm,
-                rgba(59, 130, 246, 0.15) calc(${A4_CONTENT_HEIGHT_MM}mm + 2px),
-                transparent calc(${A4_CONTENT_HEIGHT_MM}mm + 2px)
-              )`,
-              backgroundPosition: '0 0',
             }}
           >
             {/* Editable Content */}
@@ -381,11 +436,11 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
 
           {/* Info Footer */}
           <div className="text-center text-sm text-gray-500 pb-4 print:hidden max-w-[210mm]">
-            <p className="mb-1">
-              📄 Blue lines indicate where page breaks will occur when printing
+            <p className="mb-2">
+              💡 Switch to <strong>Preview</strong> mode to see exact page breaks
             </p>
             <p className="text-xs text-gray-400">
-              Margins: 25mm (auto) • Width: A4 (210mm) • Browser will handle exact pagination when printing
+              Edit mode uses continuous scroll • Preview mode shows paginated A4 pages
             </p>
           </div>
         </div>

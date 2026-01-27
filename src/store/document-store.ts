@@ -1,5 +1,9 @@
 import { create } from "zustand";
 
+// Debounce helper for syncBlocksToHtml
+let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const SYNC_DEBOUNCE_MS = 150;
+
 export interface DocumentBlock {
   id: string;
   type: "heading1" | "heading2" | "heading3" | "paragraph" | "list" | "quote" | "code_block" | "table" | "divider" | "callout";
@@ -62,6 +66,8 @@ export interface DocumentState {
   setEditorMode: (mode: DocumentState["editorMode"]) => void;
   // Sync blocks to HTML (one-way sync)
   syncBlocksToHtml: () => void;
+  // Debounced sync for performance (use during rapid edits)
+  debouncedSyncBlocksToHtml: () => void;
   // Mark HTML as dirty (user edited in WYSIWYG)
   markHtmlDirty: () => void;
   // Clear dirty flag after acknowledging
@@ -69,38 +75,54 @@ export interface DocumentState {
   reset: () => void;
 }
 
+// Helper: Escape HTML entities to prevent XSS
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Helper: Convert blocks to HTML with data-block-id for scroll sync
+// Content is escaped to prevent XSS attacks
 function blocksToHtml(blocks: DocumentBlock[]): string {
   return blocks.map(block => {
     const id = block.id;
+    const content = escapeHtml(block.content || '');
     switch (block.type) {
       case 'heading1':
-        return `<h1 data-block-id="${id}">${block.content}</h1>`;
+        return `<h1 data-block-id="${id}">${content}</h1>`;
       case 'heading2':
-        return `<h2 data-block-id="${id}">${block.content}</h2>`;
+        return `<h2 data-block-id="${id}">${content}</h2>`;
       case 'heading3':
-        return `<h3 data-block-id="${id}">${block.content}</h3>`;
+        return `<h3 data-block-id="${id}">${content}</h3>`;
       case 'paragraph':
-        return `<p data-block-id="${id}">${block.content}</p>`;
+        return `<p data-block-id="${id}">${content}</p>`;
       case 'list':
+        const items = (block.meta?.items || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
         if (block.meta?.listStyle === 'numbered') {
-          return `<ol data-block-id="${id}">${(block.meta?.items || []).map(item => `<li>${item}</li>`).join('')}</ol>`;
+          return `<ol data-block-id="${id}">${items}</ol>`;
         }
-        return `<ul data-block-id="${id}">${(block.meta?.items || []).map(item => `<li>${item}</li>`).join('')}</ul>`;
+        return `<ul data-block-id="${id}">${items}</ul>`;
       case 'quote':
-        return `<blockquote data-block-id="${id}">${block.content}</blockquote>`;
+        return `<blockquote data-block-id="${id}">${content}</blockquote>`;
       case 'code_block':
-        return `<pre data-block-id="${id}"><code>${block.content}</code></pre>`;
+        return `<pre data-block-id="${id}"><code>${content}</code></pre>`;
       case 'divider':
         return `<hr data-block-id="${id}" />`;
       case 'callout':
-        return `<div data-block-id="${id}" class="callout callout-${block.meta?.calloutStyle || 'info'}">${block.content}</div>`;
+        const calloutStyle = escapeHtml(block.meta?.calloutStyle || 'info');
+        return `<div data-block-id="${id}" class="callout callout-${calloutStyle}">${content}</div>`;
       case 'table':
-        const headers = block.meta?.headers || [];
-        const rows = block.meta?.rows || [];
-        return `<table data-block-id="${id}"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+        const headers = (block.meta?.headers || []).map(h => `<th>${escapeHtml(h)}</th>`).join('');
+        const rows = (block.meta?.rows || []).map(row => 
+          `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`
+        ).join('');
+        return `<table data-block-id="${id}"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
       default:
-        return `<p data-block-id="${id}">${block.content}</p>`;
+        return `<p data-block-id="${id}">${content}</p>`;
     }
   }).join('\n');
 }
@@ -177,7 +199,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   })),
   setEditorMode: (editorMode) => set({ editorMode }),
 
-  // One-way sync: blocks -> htmlContent
+  // One-way sync: blocks -> htmlContent (immediate)
   syncBlocksToHtml: () => set((state) => {
     const html = blocksToHtml(state.blocks);
     return {
@@ -186,6 +208,17 @@ export const useDocumentStore = create<DocumentState>((set) => ({
       isHtmlDirty: false,
     };
   }),
+
+  // Debounced sync: prevents excessive updates during rapid block changes
+  debouncedSyncBlocksToHtml: () => {
+    if (syncDebounceTimer) {
+      clearTimeout(syncDebounceTimer);
+    }
+    syncDebounceTimer = setTimeout(() => {
+      useDocumentStore.getState().syncBlocksToHtml();
+      syncDebounceTimer = null;
+    }, SYNC_DEBOUNCE_MS);
+  },
 
   markHtmlDirty: () => set({ isHtmlDirty: true }),
   clearHtmlDirty: () => set({ isHtmlDirty: false }),

@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { DocumentPreview } from "@/components/preview/document-preview";
+
 import { OutlinePanel } from "@/components/editor/outline-panel";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import { TemplatesPanel } from "@/components/templates/templates-panel";
@@ -35,12 +35,7 @@ type ViewMode = "input" | "editor";
 type Tab = "paste" | "templates";
 type SidebarTab = "theme" | "structure";
 
-const styleOptions = [
-  { id: "professional", name: "Professional", desc: "Business reports", color: "bg-blue-500" },
-  { id: "academic", name: "Academic", desc: "Thesis, papers", color: "bg-slate-900" },
-  { id: "modern", name: "Modern", desc: "Creative, colorful", color: "bg-purple-500" },
-  { id: "minimal", name: "Minimal", desc: "Clean, simple", color: "bg-gray-400" },
-] as const;
+import { STYLE_OPTIONS } from "@/lib/document-styles";
 
 export function DocumentFormatter() {
   const [viewMode, setViewMode] = useState<ViewMode>("input");
@@ -128,7 +123,7 @@ export function DocumentFormatter() {
       }));
 
       setBlocks(newBlocks);
-      
+
       // IMMEDIATELY sync blocks to HTML so WYSIWYG has content
       // This fixes the "Blank Tab" issue when switching to WYSIWYG for the first time
       // Note: setBlocks triggers blocksVersion increment, useEffect will handle sync
@@ -136,7 +131,7 @@ export function DocumentFormatter() {
       setTimeout(() => {
         useDocumentStore.getState().syncBlocksToHtml();
       }, 0);
-      
+
       setViewMode("editor");
     } catch (err) {
       setError("Failed to analyze content. Make sure the backend is running.");
@@ -180,7 +175,7 @@ export function DocumentFormatter() {
     }
   }, [title, subtitle, author, date, blocks, selectedStyle, outputFormat, setIsProcessing]);
 
-  const handleTemplateSelect = (content: string, style: typeof styleOptions[number]["id"]) => {
+  const handleTemplateSelect = (content: string, style: any) => {
     setRawContent(content);
     setSelectedStyle(style);
     setActiveTab("paste");
@@ -313,24 +308,24 @@ export function DocumentFormatter() {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-secondary/50 rounded-lg p-1">
-             <button
-                onClick={() => setOutputFormat("docx")}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                  outputFormat === "docx" ? "bg-card shadow text-white" : "text-muted-foreground hover:text-white"
-                )}
-              >
-                DOCX
-              </button>
-              <button
-                onClick={() => setOutputFormat("pdf")}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                  outputFormat === "pdf" ? "bg-card shadow text-white" : "text-muted-foreground hover:text-white"
-                )}
-              >
-                PDF
-              </button>
+            <button
+              onClick={() => setOutputFormat("docx")}
+              className={cn(
+                "px-3 py-1 rounded-md text-xs font-medium transition-all",
+                outputFormat === "docx" ? "bg-card shadow text-white" : "text-muted-foreground hover:text-white"
+              )}
+            >
+              DOCX
+            </button>
+            <button
+              onClick={() => setOutputFormat("pdf")}
+              className={cn(
+                "px-3 py-1 rounded-md text-xs font-medium transition-all",
+                outputFormat === "pdf" ? "bg-card shadow text-white" : "text-muted-foreground hover:text-white"
+              )}
+            >
+              PDF
+            </button>
           </div>
           <Button
             onClick={handleExport}
@@ -379,7 +374,7 @@ export function DocumentFormatter() {
           <div className="flex-1 overflow-y-auto p-3">
             {sidebarTab === "structure" ? (
               /* Structure / Outline Panel */
-              <OutlinePanel 
+              <OutlinePanel
                 onScrollToBlock={(blockId) => {
                   // Find the element with data-block-id and scroll to it
                   const element = document.querySelector(`[data-block-id="${blockId}"]`);
@@ -402,7 +397,7 @@ export function DocumentFormatter() {
                     Style
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {styleOptions.map((style) => (
+                    {STYLE_OPTIONS.map((style) => (
                       <button
                         key={style.id}
                         onClick={() => setSelectedStyle(style.id)}
@@ -460,20 +455,20 @@ export function DocumentFormatter() {
 
         {/* Center Canvas - Always WYSIWYG */}
         <div className="flex-1 bg-background relative overflow-hidden flex flex-col">
-           {/* Minimal Toolbar */}
-           <div className="h-9 border-b border-border flex items-center justify-between px-4 bg-card/20">
-              <span className="text-xs text-muted-foreground">
-                Page View
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {blocks.length} blocks • {selectedStyle}
-              </span>
-           </div>
+          {/* Minimal Toolbar */}
+          <div className="h-9 border-b border-border flex items-center justify-between px-4 bg-card/20">
+            <span className="text-xs text-muted-foreground">
+              Page View
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {blocks.length} blocks • {selectedStyle}
+            </span>
+          </div>
 
-           {/* WYSIWYG Editor - Always visible */}
-           <div className="flex-1 overflow-hidden">
-              <DocumentEditor />
-           </div>
+          {/* WYSIWYG Editor - Always visible */}
+          <div className="flex-1 overflow-hidden">
+            <DocumentEditor />
+          </div>
         </div>
       </div>
     </div>
