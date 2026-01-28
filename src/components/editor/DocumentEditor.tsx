@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -71,14 +71,17 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
       disabled={disabled}
       title={title}
       className={cn(
-        "p-2 rounded-md transition-colors",
+        "p-2 rounded-lg transition-all duration-200 relative group",
         isActive
-          ? "bg-primary/20 text-primary"
-          : "hover:bg-secondary text-muted-foreground hover:text-foreground",
-        disabled && "opacity-50 cursor-not-allowed"
+          ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-400 shadow-sm shadow-blue-500/10"
+          : "text-white/40 hover:text-white/80 hover:bg-white/5",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-white/40"
       )}
     >
-      {children}
+      {isActive && (
+        <div className="absolute inset-0 rounded-lg border border-blue-500/30" />
+      )}
+      <span className="relative">{children}</span>
     </button>
   );
 }
@@ -91,11 +94,15 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
   if (!editor) return null;
 
   return (
-    <div className="flex items-center justify-between p-2 border-b border-border bg-card/50">
-      {/* Left: Formatting tools (only visible in edit mode) */}
-      <div className={cn("flex items-center gap-1 flex-wrap", viewMode === "preview" && "opacity-50 pointer-events-none")}>
+    <div className="relative flex items-center justify-between px-4 py-2.5 overflow-x-auto">
+      {/* Glassmorphism Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      
+      {/* Left: Formatting tools (only visible in edit mode) - scrollable on mobile */}
+      <div className={cn("relative flex items-center gap-1 flex-nowrap min-w-0", viewMode === "preview" && "opacity-30 pointer-events-none")}>
         {/* History */}
-        <div className="flex items-center gap-0.5 pr-2 border-r border-border">
+        <div className="flex items-center gap-0.5 pr-3 mr-1 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
@@ -113,7 +120,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Text Formatting */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             isActive={editor.isActive("bold")}
@@ -159,7 +166,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Text Alignment */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
             isActive={editor.isActive({ textAlign: "left" })}
@@ -191,7 +198,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Colors */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().setColor("#dc2626").run()}
             title="Red Text"
@@ -219,7 +226,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Headings */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             isActive={editor.isActive("heading", { level: 1 })}
@@ -244,7 +251,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Lists */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             isActive={editor.isActive("bulletList")}
@@ -262,7 +269,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Block Elements */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             isActive={editor.isActive("blockquote")}
@@ -341,14 +348,14 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
       </div>
 
       {/* Right: View Mode Toggle */}
-      <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1">
+      <div className="relative flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
         <button
           onClick={() => onViewModeChange("edit")}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
             viewMode === "edit"
-              ? "bg-card shadow text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25"
+              : "text-white/50 hover:text-white/80"
           )}
         >
           <Edit3 size={14} />
@@ -357,10 +364,10 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         <button
           onClick={() => onViewModeChange("preview")}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
             viewMode === "preview"
-              ? "bg-card shadow text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25"
+              : "text-white/50 hover:text-white/80"
           )}
         >
           <Eye size={14} />
@@ -390,33 +397,36 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
 
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
 
+  // Memoize extensions to prevent duplicate registration warnings
+  const extensions = useMemo(() => [
+    StarterKit.configure({
+      heading: {
+        levels: [1, 2, 3],
+      },
+    }),
+    Placeholder.configure({
+      placeholder: "Start typing your document content here...",
+    }),
+    Table.configure({
+      resizable: true,
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    TextAlign.configure({
+      types: ["heading", "paragraph"],
+    }),
+    TextStyle,
+    Color,
+    Highlight.configure({
+      multicolor: true,
+    }),
+    Underline,
+  ], []);
+
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      Placeholder.configure({
-        placeholder: "Start typing your document content here...",
-      }),
-      Table.configure({
-        resizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
-      TextStyle,
-      Color,
-      Highlight.configure({
-        multicolor: true,
-      }),
-      Underline,
-    ],
+    extensions,
     // Initialize from JSON (Single Source of Truth) or fall back to HTML (legacy)
     content: jsonContent || htmlContent || "",
     onUpdate: ({ editor }) => {
@@ -481,25 +491,11 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
 
   const styleConfig = getStyleConfig();
 
-  // If in preview mode, show PagedPreview component
+  // If in preview mode, show PagedPreview component (fullscreen)
   if (viewMode === "preview") {
     return (
-      <div className="flex flex-col h-full">
-        <EditorToolbar editor={editor} viewMode={viewMode} onViewModeChange={setViewMode} />
-        <div className="flex-1 overflow-hidden">
-          <PagedPreview onBackToEdit={() => setViewMode("edit")} />
-        </div>
-        {/* Print Button */}
-        <div className="fixed bottom-6 right-6 print:hidden z-50">
-          <Button
-            onClick={handlePrint}
-            size="lg"
-            className="shadow-xl bg-primary hover:bg-primary/90"
-          >
-            <Printer className="mr-2" size={20} />
-            Print / Export PDF
-          </Button>
-        </div>
+      <div className="fixed inset-0 z-50 bg-background">
+        <PagedPreview onBackToEdit={() => setViewMode("edit")} />
       </div>
     );
   }

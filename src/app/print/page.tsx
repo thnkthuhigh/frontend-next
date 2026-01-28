@@ -10,8 +10,8 @@ const MARGIN = 25;
 
 export default function PrintPage() {
   const {
-    title, subtitle, author, date, htmlContent, selectedStyle, editorMode,
-    setTitle, setSubtitle, setAuthor, setDate, setBlocks, setSelectedStyle, setHtmlContent
+    title, subtitle, author, date, htmlContent, selectedStyle,
+    setTitle, setSubtitle, setAuthor, setDate, setSelectedStyle, setHtmlContent
   } = useDocumentStore();
   const [isReady, setIsReady] = useState(false);
   const [isPagedJsReady, setIsPagedJsReady] = useState(false);
@@ -30,7 +30,6 @@ export default function PrintPage() {
         if (data.subtitle) setSubtitle(data.subtitle);
         if (data.author) setAuthor(data.author);
         if (data.date) setDate(data.date);
-        if (data.blocks) setBlocks(data.blocks);
         if (data.htmlContent) setHtmlContent(data.htmlContent);
         if (data.style) setSelectedStyle(data.style);
         setIsReady(true);
