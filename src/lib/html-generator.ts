@@ -73,6 +73,17 @@ export function generateHtmlFromJson(json: Record<string, unknown> | null): stri
                 return `<th style="border: 1px solid #e5e7eb; padding: 8px; background-color: #f9fafb; font-weight: 600; text-align: left; color: #000000;">${children}</th>`;
             case 'tableCell':
                 return `<td style="border: 1px solid #e5e7eb; padding: 8px; color: #000000;">${children}</td>`;
+            case 'callout': {
+                const calloutType = (attrs?.type as string) || 'info';
+                const calloutStyles: Record<string, { bg: string; border: string; icon: string }> = {
+                    info: { bg: '#eff6ff', border: '#3b82f6', icon: '💡' },
+                    warning: { bg: '#fef3c7', border: '#f59e0b', icon: '⚠️' },
+                    success: { bg: '#ecfdf5', border: '#10b981', icon: '✅' },
+                    note: { bg: '#f3f4f6', border: '#6b7280', icon: '📝' },
+                };
+                const style = calloutStyles[calloutType] || calloutStyles.info;
+                return `<div class="callout callout-${calloutType}" style="background-color: ${style.bg}; border-left: 4px solid ${style.border}; padding: 1em 1em 1em 1.25em; margin: 1em 0; border-radius: 0.375rem;"><span style="margin-right: 0.5em;">${style.icon}</span>${children}</div>`;
+            }
             default:
                 return children;
         }

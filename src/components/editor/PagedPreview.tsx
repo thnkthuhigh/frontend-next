@@ -19,22 +19,26 @@ interface PagedPreviewProps {
 }
 
 // A4 dimensions - EXACT match with Playwright PDF settings
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
-const A4_MARGIN_MM = 25;
-const A4_CONTENT_WIDTH_MM = A4_WIDTH_MM - (A4_MARGIN_MM * 2);
-const A4_CONTENT_HEIGHT_MM = A4_HEIGHT_MM - (A4_MARGIN_MM * 2);
+import { getPdfStyles, A4_WIDTH_MM, A4_HEIGHT_MM, getContentDimensions } from "@/lib/shared-styles";
+import type { PageMargins } from "@/store/document-store";
 
 // Pixel conversion at 96 DPI
 const MM_TO_PX = 96 / 25.4;
-const A4_CONTENT_HEIGHT_PX = A4_CONTENT_HEIGHT_MM * MM_TO_PX;
 
-// Base styles consistent with what Playwright uses (or what we want it to use)
-import { getPdfStyles } from "@/lib/shared-styles";
+// Get content dimensions in pixels for pagination calculations
+function getContentDimensionsPx(margins: PageMargins) {
+    const dims = getContentDimensions(margins);
+    return {
+        width: dims.width * MM_TO_PX,
+        height: dims.height * MM_TO_PX,
+        widthMM: dims.width,
+        heightMM: dims.height,
+    };
+}
 
 // Base styles are now imported from shared-styles.ts for consistency
-function getPdfContentStyles(styleConfig: ReturnType<typeof getStyleConfig>): string {
-    return getPdfStyles(styleConfig);
+function getPdfContentStyles(styleConfig: ReturnType<typeof getStyleConfig>, margins: PageMargins): string {
+    return getPdfStyles(styleConfig, margins);
 }
 
 
@@ -70,7 +74,10 @@ function Toast({ message, onUndo, onClose }: { message: string; onUndo?: () => v
 }
 
 export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
-    const { title, subtitle, author, date, htmlContent, jsonContent, selectedStyle, setHtmlContent } = useDocumentStore();
+    const { title, subtitle, author, date, htmlContent, jsonContent, selectedStyle, setHtmlContent, margins } = useDocumentStore();
+    
+    // Calculate content dimensions based on current margins
+    const contentDims = useMemo(() => getContentDimensionsPx(margins), [margins]);
 
     const effectiveHtml = useMemo(() => {
         if (htmlContent && htmlContent.trim() !== '' && htmlContent !== '<p></p>') return htmlContent;
@@ -100,20 +107,21 @@ export function PagedPreview({ onBackToEdit }: PagedPreviewProps) {
     }, [effectiveHtml, styleConfig, title, subtitle, author, date]);
 
     const measurementHtml = useMemo(() => {
-        const styles = getPdfContentStyles(styleConfig);
+        const styles = getPdfContentStyles(styleConfig, margins);
         return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <style>
 ${styles}
+.measure-container { width: ${contentDims.widthMM}mm; }
 </style>
 </head>
 <body>
 <div class="measure-container">${effectiveHtml}</div>
 </body>
 </html>`;
-    }, [effectiveHtml, styleConfig]);
+    }, [effectiveHtml, styleConfig, margins, contentDims.widthMM]);
 
     const paginateContent = useCallback(() => {
         const iframe = measureIframeRef.current;
@@ -138,9 +146,8 @@ ${styles}
         let currentBreakIndex = -1;
         let breakCounter = 0;
 
-        // Calculate available height at 96 DPI
-        // A4 content height = 247mm = 934.4px at 96 DPI
-        const AVAILABLE_HEIGHT = A4_CONTENT_HEIGHT_PX;
+        // Calculate available height at 96 DPI based on current margins
+        const AVAILABLE_HEIGHT = contentDims.height;
 
         for (let i = 0; i < children.length; i++) {
             const child = children[i];
@@ -392,7 +399,7 @@ ${styles}
         try {
             const blob = await formatStructure(
                 { title: title || 'Untitled Document', subtitle, author, date, elements: [] },
-                selectedStyle, 'pdf', fullPdfHtml
+                selectedStyle, 'pdf', fullPdfHtml, margins
             );
             const safeTitle = (title || 'document').replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\s\-_]/g, '').trim() || 'document';
             downloadBlob(blob, `${safeTitle}.pdf`);
@@ -415,7 +422,7 @@ ${styles}
     const pageStyle: React.CSSProperties = {
         width: `${A4_WIDTH_MM}mm`,
         minHeight: `${A4_HEIGHT_MM}mm`,
-        padding: `${A4_MARGIN_MM}mm`,
+        padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
         fontFamily: styleConfig.fontFamily,
         fontSize: '11pt',
         lineHeight: String(styleConfig.lineHeight || 1.6),
@@ -425,7 +432,7 @@ ${styles}
         position: 'relative',
     };
 
-    const contentStyles = getPdfContentStyles(styleConfig);
+    const contentStyles = getPdfContentStyles(styleConfig, margins);
 
     return (
         <div className={`flex flex-col h-full transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}
@@ -436,7 +443,7 @@ ${styles}
                 style={{
                     position: 'absolute',
                     visibility: 'hidden',
-                    width: `${A4_CONTENT_WIDTH_MM}mm`,
+                    width: `${contentDims.widthMM}mm`,
                     height: '10000px',
                     left: '-9999px',
                     top: '-9999px'

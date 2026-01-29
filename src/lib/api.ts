@@ -6,6 +6,13 @@ export interface FormatRequest {
   output_format: string;
 }
 
+export interface PageMargins {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface AnalyzeResponse {
   title: string;
   subtitle?: string;
@@ -71,6 +78,52 @@ export async function analyzeTiptapContent(content: string): Promise<TiptapAnaly
   return response.json();
 }
 
+export async function analyzeContentStream(
+  content: string,
+  onChunk: (chunk: string) => void
+): Promise<AnalyzeResponse> {
+  const response = await fetch(`${API_URL}/analyze-stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to analyze content stream");
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let fullText = "";
+
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+      onChunk(chunk);
+    }
+  }
+
+  try {
+    // Try to parse the full text as JSON at the end
+    // Clean up markdown code blocks if present (just in case backend missed it)
+    let cleanText = fullText.trim();
+    if (cleanText.startsWith("```json")) cleanText = cleanText.slice(7);
+    if (cleanText.startsWith("```")) cleanText = cleanText.slice(3);
+    if (cleanText.endsWith("```")) cleanText = cleanText.slice(0, -3);
+    
+    return JSON.parse(cleanText.trim());
+  } catch (e) {
+    console.error("Failed to parse final JSON from stream", e);
+    throw new Error("AI response was not valid JSON");
+  }
+}
+
 export async function formatDocument(
   content: string,
   style: string,
@@ -99,7 +152,8 @@ export async function formatStructure(
   structure: AnalyzeResponse,
   style: string,
   outputFormat: string,
-  htmlContent?: string
+  htmlContent?: string,
+  margins?: PageMargins
 ): Promise<Blob> {
   const response = await fetch(`${API_URL}/format-structure`, {
     method: "POST",
@@ -111,6 +165,7 @@ export async function formatStructure(
       style,
       output_format: outputFormat,
       html: htmlContent,
+      margins: margins,
     }),
   });
 
@@ -176,6 +231,38 @@ export async function aiSummarize(text: string): Promise<string> {
   if (!response.ok) throw new Error("Failed to summarize text");
   const data: AITextResponse = await response.json();
   return data.result;
+}
+
+// ============================================
+// PDF V3 - HTML Injection Strategy (2026 Standard)
+// ============================================
+
+export interface PdfV3Request {
+  html: string;
+  style: string;
+  title?: string;
+  subtitle?: string;
+  author?: string;
+  date?: string;
+  margins?: PageMargins;
+}
+
+export async function exportPdfV3(request: PdfV3Request): Promise<Blob> {
+  const response = await fetch(`${API_URL}/export/pdf-v3`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("PDF V3 API Error:", response.status, errorText);
+    throw new Error(`Failed to export PDF: ${response.status} - ${errorText}`);
+  }
+
+  return response.blob();
 }
 
 export async function aiExpand(text: string): Promise<string> {

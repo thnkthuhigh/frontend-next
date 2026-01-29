@@ -49,6 +49,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PagedPreview } from "./PagedPreview";
 import { AIToolbar } from "./AIToolbar";
+import { FloatingToolbar } from "./FloatingToolbar";
+import { SlashCommand } from "./SlashCommand";
+import { AICommandHandler } from "./SlashCommand/AICommandHandler";
+import { Callout } from "./extensions/Callout";
+import { SectionNavigator } from "./SectionNavigator";
 import { extractTOC, generateTOCJson } from "@/lib/toc-generator";
 
 // A4 dimensions in mm for CSS
@@ -396,6 +401,35 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   } = useDocumentStore();
 
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
+  const [activeSectionId, setActiveSectionId] = useState<string | undefined>();
+  const [showSectionNav, setShowSectionNav] = useState(true);
+
+  // Handle section reordering from SectionNavigator
+  const handleSectionReorder = useCallback((newContent: Record<string, unknown>) => {
+    setJsonContent(newContent);
+  }, [setJsonContent]);
+
+  // Handle section click - scroll to section in editor
+  const handleSectionClick = useCallback((sectionId: string, nodeIndex: number) => {
+    setActiveSectionId(sectionId);
+    
+    // Find the heading element in the editor and scroll to it
+    const editorElement = document.querySelector('.ProseMirror');
+    if (editorElement) {
+      const headings = editorElement.querySelectorAll('h1, h2, h3, [data-page-break]');
+      let targetIndex = 0;
+      
+      // Count H1s to find the right one
+      headings.forEach((heading, i) => {
+        if (heading.tagName === 'H1') {
+          targetIndex++;
+          if (targetIndex === nodeIndex + 1 || sectionId === `section-${i}`) {
+            heading.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      });
+    }
+  }, []);
 
   // Memoize extensions to prevent duplicate registration warnings
   const extensions = useMemo(() => [
@@ -405,7 +439,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       },
     }),
     Placeholder.configure({
-      placeholder: "Start typing your document content here...",
+      placeholder: 'Start typing... or press "/" for commands',
     }),
     Table.configure({
       resizable: true,
@@ -422,6 +456,8 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       multicolor: true,
     }),
     Underline,
+    Callout,
+    SlashCommand,
   ], []);
 
   const editor = useEditor({
@@ -509,8 +545,20 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       {/* AI Toolbar - Premium Features */}
       <AIToolbar editor={editor} />
 
-      {/* Scrollable Document View */}
-      <div className="flex-1 overflow-auto bg-neutral-200 dark:bg-neutral-800 py-8">
+      {/* Main Content Area with Section Navigator */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Section Navigator Sidebar */}
+        {showSectionNav && (
+          <SectionNavigator
+            jsonContent={jsonContent}
+            onReorder={handleSectionReorder}
+            onSectionClick={handleSectionClick}
+            activeSectionId={activeSectionId}
+          />
+        )}
+
+        {/* Scrollable Document View */}
+        <div className="flex-1 overflow-auto bg-neutral-200 dark:bg-neutral-800 py-8">
         <div className="flex flex-col items-center gap-8 px-4">
 
           {/* ===== COVER PAGE ===== */}
@@ -575,7 +623,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
           >
             {/* Editable Content */}
             <div
-              className="document-content"
+              className="document-content editor-content-wrapper"
               style={{
                 fontFamily: styleConfig.fontFamily,
                 '--heading-color': styleConfig.headingColor,
@@ -586,15 +634,22 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
             </div>
           </div>
 
+          {/* Floating Toolbar - appears on text selection */}
+          <FloatingToolbar editor={editor} />
+
+          {/* AI Command Handler - listens for slash command events */}
+          <AICommandHandler editor={editor} />
+
           {/* Info Footer */}
           <div className="text-center text-sm text-gray-500 pb-4 print:hidden max-w-[210mm]">
             <p className="mb-2">
-              💡 Switch to <strong>Preview</strong> mode to see exact page breaks
+              💡 Type <strong>/</strong> for commands • Switch to <strong>Preview</strong> for exact page breaks
             </p>
             <p className="text-xs text-gray-400">
-              Edit mode uses continuous scroll • Preview mode shows paginated A4 pages
+              Slash commands: /h1, /table, /summary, /fix • Select text for AI toolbar
             </p>
           </div>
+        </div>
         </div>
       </div>
 

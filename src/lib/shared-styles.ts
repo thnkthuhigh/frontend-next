@@ -1,10 +1,36 @@
 import { StyleConfig } from './document-styles';
+import type { PageMargins } from '@/store/document-store';
+
+// A4 dimensions in mm
+export const A4_WIDTH_MM = 210;
+export const A4_HEIGHT_MM = 297;
+
+// Default margins (1 inch = 25.4mm)
+export const DEFAULT_MARGINS: PageMargins = {
+    top: 25.4,
+    right: 25.4,
+    bottom: 25.4,
+    left: 25.4,
+};
+
+// Calculate content dimensions based on margins
+export function getContentDimensions(margins: PageMargins = DEFAULT_MARGINS) {
+    return {
+        width: A4_WIDTH_MM - margins.left - margins.right,
+        height: A4_HEIGHT_MM - margins.top - margins.bottom,
+    };
+}
 
 /**
  * Shared function to generate the EXACT CSS used for both PDF Generation and Preview.
  * This ensures WYSIWYG accuracy.
+ * 
+ * @param styleConfig - The document style configuration
+ * @param margins - Optional page margins (defaults to 25.4mm / 1 inch)
  */
-export function getPdfStyles(styleConfig: StyleConfig): string {
+export function getPdfStyles(styleConfig: StyleConfig, margins: PageMargins = DEFAULT_MARGINS): string {
+    const contentDimensions = getContentDimensions(margins);
+    
     return `
         /* Reset and base */
         * {
@@ -31,12 +57,12 @@ export function getPdfStyles(styleConfig: StyleConfig): string {
         }
         
         /* 
-         * Cover Page - Playwright adds 25mm margins = content area is 160mm x 247mm
+         * Cover Page - Uses dynamic content height based on margins
          * We center content in this area using flexbox
          */
         .cover-page {
             width: 100%;
-            min-height: 247mm; /* A4 content height (297 - 25*2) */
+            min-height: ${contentDimensions.height}mm; /* A4 content height based on margins */
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -134,15 +160,69 @@ export function getPdfStyles(styleConfig: StyleConfig): string {
             hyphens: auto;
         }
         
+        /* Lists - Premium Styling with Custom Markers */
         ul, ol {
             margin-bottom: 1.2em;
             padding-left: 2em;
         }
         
+        ul {
+            list-style: none;
+        }
+        
+        ul > li {
+            position: relative;
+            padding-left: 1.25em;
+        }
+        
+        ul > li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: ${styleConfig.accentColor};
+            font-weight: bold;
+            font-size: 1.2em;
+            line-height: 1.4;
+        }
+        
+        ol {
+            list-style: none;
+            counter-reset: list-counter;
+        }
+        
+        ol > li {
+            position: relative;
+            padding-left: 1.75em;
+            counter-increment: list-counter;
+        }
+        
+        ol > li::before {
+            content: counter(list-counter) ".";
+            position: absolute;
+            left: 0;
+            color: ${styleConfig.accentColor};
+            font-weight: 600;
+        }
+        
         li {
-            margin-bottom: 0.5em;
-            padding-left: 0.25em;
+            margin-bottom: 0.6em;
             line-height: 1.6;
+        }
+        
+        /* Nested lists */
+        li > ul, li > ol {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+        
+        li > ul > li::before {
+            content: "◦";
+            font-size: 1em;
+        }
+        
+        li > ul > li > ul > li::before {
+            content: "▪";
+            font-size: 0.8em;
         }
         
         /* Tables */
@@ -204,6 +284,39 @@ export function getPdfStyles(styleConfig: StyleConfig): string {
         u { text-decoration: underline; }
         s { text-decoration: line-through; }
         mark { background-color: #fef08a; }
+        
+        /* Callouts - Info, Warning, Success, Note */
+        .callout {
+            padding: 1em 1.25em;
+            margin: 1.5em 0;
+            border-radius: 0.5em;
+            border-left: 4px solid;
+            page-break-inside: avoid;
+        }
+        
+        .callout-info {
+            background-color: #eff6ff;
+            border-left-color: #3b82f6;
+        }
+        
+        .callout-warning {
+            background-color: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        
+        .callout-success {
+            background-color: #ecfdf5;
+            border-left-color: #10b981;
+        }
+        
+        .callout-note {
+            background-color: #f3f4f6;
+            border-left-color: #6b7280;
+        }
+        
+        .callout p {
+            margin: 0;
+        }
         
         /* Horizontal rule */
         hr {

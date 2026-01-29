@@ -714,3 +714,134 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.2s ease-in-out;
 }
+
+/* ===== MOBILE RESPONSIVENESS ===== */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  .mobile-flex-col {
+    flex-direction: column !important;
+  }
+  
+  .mobile-w-full {
+    width: 100% !important;
+  }
+  
+  .mobile-p-4 {
+    padding: 1rem !important;
+  }
+  
+  .mobile-text-center {
+    text-align: center !important;
+  }
+  
+  .mobile-space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+  
+  /* Adjust font sizes for mobile */
+  .mobile-text-4xl {
+    font-size: 2.25rem !important;
+    line-height: 2.5rem !important;
+  }
+  
+  .mobile-text-3xl {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+  
+  .mobile-text-lg {
+    font-size: 1.125rem !important;
+    line-height: 1.75rem !important;
+  }
+  
+  /* Adjust padding and margins */
+  .mobile-px-4 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  .mobile-py-3 {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+  
+  /* Hide sidebar on mobile */
+  .mobile-sidebar-hidden {
+    display: none !important;
+  }
+  
+  /* Stack buttons vertically */
+  .mobile-stack-buttons {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  
+  .mobile-stack-buttons > * {
+    width: 100% !important;
+  }
+  
+  /* Reduce animation intensity on mobile */
+  .mobile-reduce-animation * {
+    animation-duration: 0.5s !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .sm-mobile-hidden {
+    display: none !important;
+  }
+  
+  .sm-mobile-block {
+    display: block !important;
+  }
+  
+  .sm-mobile-w-full {
+    width: 100% !important;
+  }
+  
+  .sm-mobile-text-2xl {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+  }
+  
+  .sm-mobile-p-2 {
+    padding: 0.5rem !important;
+  }
+  
+  /* Adjust grid columns */
+  .sm-mobile-grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  
+  /* Reduce padding */
+  .sm-mobile-px-2 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  
+  .print-visible {
+    display: block !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .glass-card, .glass-panel, .glass-button {
+    background: white !important;
+    backdrop-filter: none !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+}

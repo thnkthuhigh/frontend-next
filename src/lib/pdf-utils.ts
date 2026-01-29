@@ -35,7 +35,9 @@ export function buildPdfHtml(
 <html>
 <head>
     <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 ${styles}
     </style>
 </head>
