@@ -13,25 +13,40 @@ export interface OutlineItem {
 }
 
 /**
- * Extract headings from Tiptap JSON content for outline/navigation
+ * Extract headings AND page breaks from Tiptap JSON content for outline/navigation
+ * Page breaks have level 0 to distinguish them from headings
  */
 export function extractHeadings(content: JSONContent | null): OutlineItem[] {
   if (!content || !content.content) return [];
 
   const headings: OutlineItem[] = [];
   let headingIndex = 0;
+  let pageBreakCount = 0;
 
   // Traverse the document content
   function traverse(nodes: JSONContent[], depth: number = 0) {
     for (const node of nodes) {
+      // Extract headings
       if (node.type === "heading" && node.attrs?.level) {
         // Extract text from heading content
         const text = extractTextFromNode(node);
-        
+
         headings.push({
           id: node.attrs.id || `heading-${headingIndex}`,
           text: text || "Untitled",
           level: node.attrs.level,
+          index: headingIndex,
+        });
+        headingIndex++;
+      }
+
+      // Extract page breaks (level 0 = special marker)
+      if (node.type === "pageBreak" || node.type === "horizontalRule") {
+        pageBreakCount++;
+        headings.push({
+          id: `pagebreak-${pageBreakCount}`,
+          text: `Page Break`,
+          level: 0, // Special level for page breaks
           index: headingIndex,
         });
         headingIndex++;
@@ -47,6 +62,7 @@ export function extractHeadings(content: JSONContent | null): OutlineItem[] {
   traverse(content.content);
   return headings;
 }
+
 
 /**
  * Extract plain text from a Tiptap node (handles marks and nested text)

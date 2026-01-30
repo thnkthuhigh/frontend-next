@@ -43,8 +43,16 @@ import {
   RowsIcon,
   Columns,
   ListTodo,
+  Circle,
+  CircleDot,
+  Square,
+  Minus as DashIcon,
+  Check,
+  ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
+import { useEditorStore } from "@/store/editor-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PagedPreview } from "./PagedPreview";
@@ -53,6 +61,7 @@ import { FloatingToolbar } from "./FloatingToolbar";
 import { SlashCommand } from "./SlashCommand";
 import { AICommandHandler } from "./SlashCommand/AICommandHandler";
 import { Callout } from "./extensions/Callout";
+import { CustomBulletList, BULLET_STYLES, type BulletStyle } from "./extensions/CustomBulletList";
 import { SectionNavigator } from "./SectionNavigator";
 import { extractTOC, generateTOCJson } from "@/lib/toc-generator";
 
@@ -79,8 +88,8 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
         "p-2 rounded-lg transition-all duration-200 relative group",
         isActive
           ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-400 shadow-sm shadow-blue-500/10"
-          : "text-white/40 hover:text-white/80 hover:bg-white/5",
-        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-white/40"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
       )}
     >
       {isActive && (
@@ -101,13 +110,13 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
   return (
     <div className="relative flex items-center justify-between px-4 py-2.5 overflow-x-auto">
       {/* Glassmorphism Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      
+      <div className="absolute inset-0 bg-gradient-to-b from-background/5 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
       {/* Left: Formatting tools (only visible in edit mode) - scrollable on mobile */}
       <div className={cn("relative flex items-center gap-1 flex-nowrap min-w-0", viewMode === "preview" && "opacity-30 pointer-events-none")}>
         {/* History */}
-        <div className="flex items-center gap-0.5 pr-3 mr-1 border-r border-white/10">
+        <div className="flex items-center gap-0.5 pr-3 mr-1 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
@@ -125,7 +134,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Text Formatting */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             isActive={editor.isActive("bold")}
@@ -171,7 +180,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Text Alignment */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
             isActive={editor.isActive({ textAlign: "left" })}
@@ -203,7 +212,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Colors */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().setColor("#dc2626").run()}
             title="Red Text"
@@ -231,7 +240,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Headings */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             isActive={editor.isActive("heading", { level: 1 })}
@@ -256,7 +265,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
         </div>
 
         {/* Lists */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             isActive={editor.isActive("bulletList")}
@@ -271,10 +280,43 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
           >
             <ListOrdered size={18} />
           </ToolbarButton>
+          {/* List Style Dropdown - only show when in bulletList */}
+          {editor.isActive("bulletList") && (
+            <div className="relative group">
+              <button
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Change Bullet Style"
+              >
+                <span className="text-sm">●</span>
+                <ChevronDown size={12} />
+              </button>
+              {/* Dropdown Menu */}
+              <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-50">
+                <div className="bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[140px]">
+                  {BULLET_STYLES.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() => editor.chain().focus().setBulletStyle(style.id as BulletStyle).run()}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors",
+                        "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="w-4 text-center">{style.icon}</span>
+                      <span>{style.label.split(' ')[1]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Block Elements */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-white/10">
+        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             isActive={editor.isActive("blockquote")}
@@ -353,14 +395,14 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
       </div>
 
       {/* Right: View Mode Toggle */}
-      <div className="relative flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+      <div className="relative flex items-center gap-1 p-1 rounded-xl bg-muted border border-border">
         <button
           onClick={() => onViewModeChange("edit")}
           className={cn(
             "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
             viewMode === "edit"
               ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25"
-              : "text-white/50 hover:text-white/80"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Edit3 size={14} />
@@ -372,7 +414,7 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
             "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
             viewMode === "preview"
               ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25"
-              : "text-white/50 hover:text-white/80"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Eye size={14} />
@@ -402,7 +444,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
 
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [activeSectionId, setActiveSectionId] = useState<string | undefined>();
-  const [showSectionNav, setShowSectionNav] = useState(true);
+  const [showSectionNav, setShowSectionNav] = useState(false); // Hidden - use Outline instead
 
   // Handle section reordering from SectionNavigator
   const handleSectionReorder = useCallback((newContent: Record<string, unknown>) => {
@@ -412,13 +454,13 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   // Handle section click - scroll to section in editor
   const handleSectionClick = useCallback((sectionId: string, nodeIndex: number) => {
     setActiveSectionId(sectionId);
-    
+
     // Find the heading element in the editor and scroll to it
     const editorElement = document.querySelector('.ProseMirror');
     if (editorElement) {
       const headings = editorElement.querySelectorAll('h1, h2, h3, [data-page-break]');
       let targetIndex = 0;
-      
+
       // Count H1s to find the right one
       headings.forEach((heading, i) => {
         if (heading.tagName === 'H1') {
@@ -437,7 +479,11 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       heading: {
         levels: [1, 2, 3],
       },
+      // Disable default bulletList - we use CustomBulletList instead
+      bulletList: false,
     }),
+    // Custom BulletList with bulletStyle attribute
+    CustomBulletList,
     Placeholder.configure({
       placeholder: 'Start typing... or press "/" for commands',
     }),
@@ -460,6 +506,8 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     SlashCommand,
   ], []);
 
+  const { setEditor } = useEditorStore();
+  
   const editor = useEditor({
     immediatelyRender: false,
     extensions,
@@ -477,6 +525,12 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       },
     },
   });
+
+  // Store editor instance globally for sidebar access
+  useEffect(() => {
+    setEditor(editor);
+    return () => setEditor(null);
+  }, [editor, setEditor]);
 
   // Sync content from store when it changes externally (e.g., AI analysis)
   // Prioritize JSON content over HTML
@@ -558,98 +612,98 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
         )}
 
         {/* Scrollable Document View */}
-        <div className="flex-1 overflow-auto bg-neutral-200 dark:bg-neutral-800 py-8">
-        <div className="flex flex-col items-center gap-8 px-4">
+        <div className="flex-1 overflow-auto bg-background-secondary py-8">
+          <div className="flex flex-col items-center gap-8 px-4">
 
-          {/* ===== COVER PAGE ===== */}
-          <div
-            className="bg-white shadow-xl document-page"
-            style={{
-              width: `${A4_WIDTH_MM}mm`,
-              minHeight: `297mm`,
-              padding: `${A4_MARGIN_MM}mm`,
-              fontFamily: styleConfig.fontFamily,
-              boxSizing: 'border-box',
-            }}
-          >
+            {/* ===== COVER PAGE ===== */}
             <div
-              className="h-full flex flex-col justify-center items-center text-center border-b-2"
+              className="bg-white shadow-xl document-page"
               style={{
-                borderColor: styleConfig.accentColor,
-                minHeight: `${A4_CONTENT_HEIGHT_MM}mm`,
+                width: `${A4_WIDTH_MM}mm`,
+                minHeight: `297mm`,
+                padding: `${A4_MARGIN_MM}mm`,
+                fontFamily: styleConfig.fontFamily,
+                boxSizing: 'border-box',
               }}
             >
-              <h1
-                className="text-3xl font-bold mb-4"
-                style={{ color: styleConfig.headingColor }}
+              <div
+                className="h-full flex flex-col justify-center items-center text-center border-b-2"
+                style={{
+                  borderColor: styleConfig.accentColor,
+                  minHeight: `${A4_CONTENT_HEIGHT_MM}mm`,
+                }}
               >
-                {title || "Untitled Document"}
-              </h1>
-              {subtitle && (
-                <h2
-                  className="text-xl italic mb-6"
-                  style={{ color: styleConfig.accentColor }}
+                <h1
+                  className="text-3xl font-bold mb-4"
+                  style={{ color: styleConfig.headingColor }}
                 >
-                  {subtitle}
-                </h2>
-              )}
-              <div className="w-16 h-0.5 my-6" style={{ backgroundColor: styleConfig.accentColor }} />
-              <div className="text-sm text-gray-600 mt-auto mb-8">
-                {author && <p>{author}</p>}
-                {date && <p className="mt-1">{date}</p>}
+                  {title || "Untitled Document"}
+                </h1>
+                {subtitle && (
+                  <h2
+                    className="text-xl italic mb-6"
+                    style={{ color: styleConfig.accentColor }}
+                  >
+                    {subtitle}
+                  </h2>
+                )}
+                <div className="w-16 h-0.5 my-6" style={{ backgroundColor: styleConfig.accentColor }} />
+                <div className="text-sm text-muted-foreground mt-auto mb-8">
+                  {author && <p>{author}</p>}
+                  {date && <p className="mt-1">{date}</p>}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Page Break Indicator */}
-          <div className="flex items-center justify-center w-full max-w-[210mm] print:hidden">
-            <div className="flex-1 h-px bg-blue-300" />
-            <span className="text-xs text-blue-400 px-4 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full mx-2">
-              Page Break • Content starts on next page
-            </span>
-            <div className="flex-1 h-px bg-blue-300" />
-          </div>
+            {/* Page Break Indicator */}
+            <div className="flex items-center justify-center w-full max-w-[210mm] print:hidden">
+              <div className="flex-1 h-px bg-blue-300" />
+              <span className="text-xs text-blue-400 px-4 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full mx-2">
+                Page Break • Content starts on next page
+              </span>
+              <div className="flex-1 h-px bg-blue-300" />
+            </div>
 
-          {/* ===== CONTENT PAGE - Continuous Scroll ===== */}
-          <div
-            className="bg-white shadow-xl document-page"
-            style={{
-              width: `${A4_WIDTH_MM}mm`,
-              minHeight: `297mm`,
-              padding: `${A4_MARGIN_MM}mm`,
-              fontFamily: styleConfig.fontFamily,
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* Editable Content */}
+            {/* ===== CONTENT PAGE - Continuous Scroll ===== */}
             <div
-              className="document-content editor-content-wrapper"
+              className="bg-white shadow-xl document-page"
               style={{
+                width: `${A4_WIDTH_MM}mm`,
+                minHeight: `297mm`,
+                padding: `${A4_MARGIN_MM}mm`,
                 fontFamily: styleConfig.fontFamily,
-                '--heading-color': styleConfig.headingColor,
-                '--accent-color': styleConfig.accentColor,
-              } as React.CSSProperties}
+                boxSizing: 'border-box',
+              }}
             >
-              <EditorContent editor={editor} />
+              {/* Editable Content */}
+              <div
+                className="document-content editor-content-wrapper"
+                style={{
+                  fontFamily: styleConfig.fontFamily,
+                  '--heading-color': styleConfig.headingColor,
+                  '--accent-color': styleConfig.accentColor,
+                } as React.CSSProperties}
+              >
+                <EditorContent editor={editor} />
+              </div>
+            </div>
+
+            {/* Floating Toolbar - appears on text selection */}
+            <FloatingToolbar editor={editor} />
+
+            {/* AI Command Handler - listens for slash command events */}
+            <AICommandHandler editor={editor} />
+
+            {/* Info Footer */}
+            <div className="text-center text-sm text-muted-foreground pb-4 print:hidden max-w-[210mm]">
+              <p className="mb-2">
+                💡 Type <strong>/</strong> for commands • Switch to <strong>Preview</strong> for exact page breaks
+              </p>
+              <p className="text-xs text-muted-foreground/80">
+                Slash commands: /h1, /table, /summary, /fix • Select text for AI toolbar
+              </p>
             </div>
           </div>
-
-          {/* Floating Toolbar - appears on text selection */}
-          <FloatingToolbar editor={editor} />
-
-          {/* AI Command Handler - listens for slash command events */}
-          <AICommandHandler editor={editor} />
-
-          {/* Info Footer */}
-          <div className="text-center text-sm text-gray-500 pb-4 print:hidden max-w-[210mm]">
-            <p className="mb-2">
-              💡 Type <strong>/</strong> for commands • Switch to <strong>Preview</strong> for exact page breaks
-            </p>
-            <p className="text-xs text-gray-400">
-              Slash commands: /h1, /table, /summary, /fix • Select text for AI toolbar
-            </p>
-          </div>
-        </div>
         </div>
       </div>
 

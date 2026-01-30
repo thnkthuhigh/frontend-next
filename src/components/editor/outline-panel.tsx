@@ -8,19 +8,21 @@ import {
   FileText,
   Hash,
   List,
+  Scissors, // Page Break icon
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { cn } from "@/lib/utils";
 import { extractHeadings, getDocumentStats } from "@/lib/json-utils";
 
-// Heading icon map by level
+// Heading icon map by level (0 = page break)
 const headingIcons: Record<number, React.ElementType> = {
+  0: Scissors, // Page Break
   1: Heading1,
   2: Heading2,
   3: Heading3,
 };
 
-// Outline Item Component - displays a single heading
+// Outline Item Component - displays a single heading or page break
 interface OutlineItemProps {
   id: string;
   text: string;
@@ -31,7 +33,8 @@ interface OutlineItemProps {
 
 function OutlineItemComponent({ id, text, level, index, onScrollTo }: OutlineItemProps) {
   const IconComponent = headingIcons[level] || Hash;
-  const indentClass = level === 1 ? "pl-0" : level === 2 ? "pl-3" : "pl-6";
+  const isPageBreak = level === 0;
+  const indentClass = level === 1 ? "pl-0" : level === 2 ? "pl-3" : level === 3 ? "pl-6" : "pl-0";
 
   return (
     <button
@@ -39,26 +42,30 @@ function OutlineItemComponent({ id, text, level, index, onScrollTo }: OutlineIte
       className={cn(
         "w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all",
         "hover:bg-card/80 hover:border-border border border-transparent",
+        isPageBreak && "border-dashed border-orange-500/30 bg-orange-500/5",
         indentClass
       )}
     >
       <div className={cn(
         "p-1 rounded shrink-0",
-        level === 1 ? "bg-primary/20 text-primary" : 
-        level === 2 ? "bg-blue-500/20 text-blue-500" : 
-        "bg-secondary/50 text-muted-foreground"
+        isPageBreak ? "bg-orange-500/20 text-orange-500" :
+          level === 1 ? "bg-primary/20 text-primary" :
+            level === 2 ? "bg-blue-500/20 text-blue-500" :
+              "bg-secondary/50 text-muted-foreground"
       )}>
         <IconComponent size={12} />
       </div>
       <span className={cn(
         "text-xs truncate flex-1",
-        level === 1 ? "font-semibold text-foreground" : "text-muted-foreground"
+        isPageBreak ? "font-medium text-orange-500 italic" :
+          level === 1 ? "font-semibold text-foreground" : "text-muted-foreground"
       )}>
         {text || "Untitled"}
       </span>
     </button>
   );
 }
+
 
 // Main Outline Panel component - reads from jsonContent (Single Source of Truth)
 interface OutlinePanelProps {
@@ -71,7 +78,7 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
 
   // Extract headings from JSON content (Projection View)
   const headings = useMemo(() => extractHeadings(jsonContent), [jsonContent]);
-  
+
   // Get document statistics
   const stats = useMemo(() => getDocumentStats(jsonContent), [jsonContent]);
 
@@ -104,7 +111,7 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
         <p className="text-[10px] text-muted-foreground/60">
           Add headings (H1, H2, H3) to see outline
         </p>
-        
+
         {/* Stats */}
         {stats.words > 0 && (
           <div className="mt-4 pt-4 border-t border-border w-full">

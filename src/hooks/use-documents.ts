@@ -81,7 +81,7 @@ export function useAutoSave(
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  
+
   // Track if content has actually changed
   const lastContentRef = useRef<string>("");
   const lastTitleRef = useRef<string>("");
@@ -94,7 +94,7 @@ export function useAutoSave(
     if (!documentId || !debouncedContent) return;
 
     const contentString = JSON.stringify(debouncedContent);
-    
+
     // Skip if nothing changed
     if (contentString === lastContentRef.current && debouncedTitle === lastTitleRef.current) {
       return;
@@ -106,13 +106,48 @@ export function useAutoSave(
 
       try {
         const supabase = createClient();
+        
+        // Check if content has actual data (not just empty structure)
+        const hasContent = () => {
+          if (typeof debouncedContent !== 'object' || !debouncedContent) return false;
+          const content = debouncedContent as Record<string, unknown>;
+          
+          // Check tiptap content
+          if (content.tiptap && typeof content.tiptap === 'object') {
+            const tiptap = content.tiptap as Record<string, unknown>;
+            if (tiptap.content && Array.isArray(tiptap.content) && tiptap.content.length > 0) {
+              // Check if there's actual text or meaningful content (not just empty paragraphs)
+              const hasText = tiptap.content.some((node: unknown) => {
+                const n = node as Record<string, unknown>;
+                return n.type !== 'paragraph' || (n.content && Array.isArray(n.content) && n.content.length > 0);
+              });
+              return hasText;
+            }
+          }
+          
+          // Check HTML content
+          if (content.html && typeof content.html === 'string' && content.html.length > 50) {
+            return true;
+          }
+          
+          return false;
+        };
+
+        // Prepare update object
+        const updateData: Record<string, unknown> = {
+          content: debouncedContent,
+          title: debouncedTitle,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Auto-update status to 'generated' if content exists
+        if (hasContent()) {
+          updateData.status = 'generated';
+        }
+
         const { error } = await supabase
           .from("documents")
-          .update({
-            content: debouncedContent,
-            title: debouncedTitle,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData as never)
           .eq("id", documentId);
 
         if (error) throw error;
@@ -150,7 +185,8 @@ export function useDocumentOperations() {
           user_id: userId,
           title,
           content: { type: "doc", content: [] } as Json,
-        })
+          status: 'draft',
+        } as never)
         .select()
         .single();
 
@@ -173,7 +209,7 @@ export function useDocumentOperations() {
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
-        })
+        } as never)
         .eq("id", documentId)
         .select()
         .single();
@@ -211,7 +247,8 @@ export function useDocumentOperations() {
           user_id: document.user_id,
           title: `${document.title} (Copy)`,
           content: document.content,
-        })
+          status: document.status, // Keep same status as original
+        } as never)
         .select()
         .single();
 

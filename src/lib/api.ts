@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const { getCurrentSession } = await import("@/lib/supabase/client");
+    const session = await getCurrentSession();
+    if (!session?.access_token) return {};
+    return { Authorization: `Bearer ${session.access_token}` };
+  } catch {
+    return {};
+  }
+}
+
 export interface FormatRequest {
   content: string;
   style: string;
@@ -36,6 +48,7 @@ export async function analyzeContent(content: string): Promise<AnalyzeResponse> 
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify({ content }),
   });
@@ -65,6 +78,7 @@ export async function analyzeTiptapContent(content: string): Promise<TiptapAnaly
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify({ content }),
   });
@@ -86,6 +100,7 @@ export async function analyzeContentStream(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify({ content }),
   });
@@ -133,6 +148,7 @@ export async function formatDocument(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify({
       content,
@@ -159,6 +175,7 @@ export async function formatStructure(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify({
       structure,
@@ -200,33 +217,40 @@ export interface AITextResponse {
   result: string;
 }
 
-export async function aiRewrite(text: string, style: RewriteStyle = "professional"): Promise<string> {
+export interface AIContext {
+  format: "list" | "paragraph" | "mixed";
+  itemCount?: number;
+  hasNested?: boolean;
+  structure?: "flat" | "nested";
+}
+
+export async function aiRewrite(text: string, style: RewriteStyle = "professional", context?: AIContext): Promise<string> {
   const response = await fetch(`${API_URL}/ai/rewrite`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, style }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ text, style, context }),
   });
   if (!response.ok) throw new Error("Failed to rewrite text");
   const data: AITextResponse = await response.json();
   return data.result;
 }
 
-export async function aiTranslate(text: string, targetLanguage: TranslateLanguage = "en"): Promise<string> {
+export async function aiTranslate(text: string, targetLanguage: TranslateLanguage = "en", context?: AIContext): Promise<string> {
   const response = await fetch(`${API_URL}/ai/translate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, target_language: targetLanguage }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ text, target_language: targetLanguage, context }),
   });
   if (!response.ok) throw new Error("Failed to translate text");
   const data: AITextResponse = await response.json();
   return data.result;
 }
 
-export async function aiSummarize(text: string): Promise<string> {
+export async function aiSummarize(text: string, context?: AIContext): Promise<string> {
   const response = await fetch(`${API_URL}/ai/summarize`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ text, context }),
   });
   if (!response.ok) throw new Error("Failed to summarize text");
   const data: AITextResponse = await response.json();
@@ -252,6 +276,7 @@ export async function exportPdfV3(request: PdfV3Request): Promise<Blob> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
     },
     body: JSON.stringify(request),
   });
@@ -265,22 +290,22 @@ export async function exportPdfV3(request: PdfV3Request): Promise<Blob> {
   return response.blob();
 }
 
-export async function aiExpand(text: string): Promise<string> {
+export async function aiExpand(text: string, context?: AIContext): Promise<string> {
   const response = await fetch(`${API_URL}/ai/expand`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ text, context }),
   });
   if (!response.ok) throw new Error("Failed to expand text");
   const data: AITextResponse = await response.json();
   return data.result;
 }
 
-export async function aiFixGrammar(text: string): Promise<string> {
+export async function aiFixGrammar(text: string, context?: AIContext): Promise<string> {
   const response = await fetch(`${API_URL}/ai/fix-grammar`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ text, context }),
   });
   if (!response.ok) throw new Error("Failed to fix grammar");
   const data: AITextResponse = await response.json();

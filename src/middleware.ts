@@ -43,14 +43,14 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Protected routes - require authentication
-  const protectedRoutes = ['/dashboard']
+  const protectedRoutes = ['/dashboard', '/editor', '/print']
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
 
   // Auth routes - redirect to dashboard if already logged in
   const authRoutes = ['/login', '/register']
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
 
-  // If accessing protected route without auth, redirect to login
+  // If accessing protected route without auth, redirect to login with redirect param
   if (isProtectedRoute && !user) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('redirect', pathname)

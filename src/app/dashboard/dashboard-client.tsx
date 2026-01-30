@@ -55,15 +55,16 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
         .insert({
           user_id: user.id,
           title: "Untitled Document",
-          content: { type: "doc", content: [] } as unknown as Database["public"]["Tables"]["documents"]["Insert"]["content"],
-        } as Database["public"]["Tables"]["documents"]["Insert"])
+          content: { type: "doc", content: [] },
+          status: 'draft',
+        } as never)
         .select()
         .single();
 
       if (error) throw error;
 
       // Navigate to editor with the new document
-      router.push(`/editor/${data.id}`);
+      router.push(`/editor/${(data as { id: string }).id}`);
     } catch (error) {
       console.error("Error creating document:", error);
     } finally {
@@ -80,7 +81,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
       const supabase = createClient();
       const { error } = await supabase
         .from("documents")
-        .update({ title: newTitle, updated_at: new Date().toISOString() })
+        .update({ title: newTitle, updated_at: new Date().toISOString() } as never)
         .eq("id", docId);
 
       if (error) throw error;
@@ -118,6 +119,15 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
   const handleSignOut = useCallback(async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    
+    // P1-UX-003: Clear Zustand persisted storage to prevent data leakage
+    // This ensures next user doesn't see previous user's cached data
+    try {
+      localStorage.removeItem('ai-doc-formatter-storage');
+    } catch (e) {
+      console.error('Failed to clear localStorage:', e);
+    }
+    
     router.push("/");
     router.refresh();
   }, [router]);
@@ -129,24 +139,24 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #0d0e12 0%, #0a0b0f 100%)' }}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#0d0e12]/80">
+      <header className="sticky top-0 z-50 border-b border-border backdrop-blur-xl bg-background/80">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-border">
                 <Sparkles className="w-6 h-6 text-blue-400" />
               </div>
-              <span className="font-bold text-xl text-white">AI Doc Formatter</span>
+              <span className="font-bold text-xl text-foreground">AI Doc Formatter</span>
             </Link>
 
             {/* User Menu */}
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-white">{user.user_metadata?.full_name || 'User'}</p>
-                <p className="text-xs text-white/50">{user.email}</p>
+                <p className="text-sm font-medium text-foreground">{user.user_metadata?.full_name || 'User'}</p>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
                 {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
@@ -154,7 +164,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
               <Button
                 onClick={handleSignOut}
                 variant="ghost"
-                className="text-white/60 hover:text-white hover:bg-white/5"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <LogOut size={18} />
               </Button>
@@ -168,8 +178,8 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">My Documents</h1>
-            <p className="text-white/50 mt-1">Create and manage your AI-formatted documents</p>
+            <h1 className="text-3xl font-bold text-foreground">My Documents</h1>
+            <p className="text-muted-foreground mt-1">Create and manage your AI-formatted documents</p>
           </div>
           <Button
             onClick={handleCreateDocument}
@@ -191,26 +201,26 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
 
         {/* Search */}
         <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search documents..."
-            className="h-12 pl-12 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+            className="h-12 pl-12 bg-muted border-border hover:border-primary/30 focus:border-primary rounded-xl text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         {/* Documents Grid */}
         {filteredDocuments.length === 0 ? (
           <div className="text-center py-16">
-            <div className="inline-flex p-6 rounded-full bg-white/5 mb-6">
-              <FolderOpen className="w-12 h-12 text-white/30" />
+            <div className="inline-flex p-6 rounded-full bg-muted mb-6">
+              <FolderOpen className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">
+            <h3 className="text-xl font-semibold text-foreground mb-2">
               {searchQuery ? "No documents found" : "No documents yet"}
             </h3>
-            <p className="text-white/50 mb-6">
+            <p className="text-muted-foreground mb-6">
               {searchQuery
                 ? "Try a different search term"
                 : "Create your first document to get started"}
@@ -234,7 +244,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
             {filteredDocuments.map((doc) => (
               <div
                 key={doc.id}
-                className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl p-5 transition-all duration-200 cursor-pointer"
+                className="group relative bg-card hover:bg-card-hover border border-border hover:border-primary/30 rounded-2xl p-5 transition-all duration-200 cursor-pointer"
                 onClick={() => handleOpenDocument(doc.id)}
               >
                 {/* Document Icon */}
@@ -255,7 +265,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                           setEditingId(null);
                         }
                       }}
-                      className="h-8 text-sm bg-white/10 border-white/20"
+                      className="h-8 text-sm bg-muted border-border"
                       autoFocus
                     />
                     <button
@@ -266,19 +276,27 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                     </button>
                     <button
                       onClick={() => setEditingId(null)}
-                      className="p-1.5 rounded-lg bg-white/10 text-white/60 hover:bg-white/20"
+                      className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
                     >
                       <X size={14} />
                     </button>
                   </div>
                 ) : (
-                  <h3 className="font-semibold text-white truncate mb-2">{doc.title}</h3>
+                  <h3 className="font-semibold text-foreground truncate mb-2">{doc.title}</h3>
                 )}
 
                 {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-white/40">
-                  <Clock size={12} />
-                  <span>{formatDistanceToNow(new Date(doc.updated_at))}</span>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Clock size={12} />
+                    <span>{formatDistanceToNow(new Date(doc.updated_at))}</span>
+                  </div>
+                  {/* Status Badge */}
+                  {doc.status === 'draft' && (
+                    <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 text-[10px] font-medium">
+                      Draft
+                    </span>
+                  )}
                 </div>
 
                 {/* Menu Button */}
@@ -288,7 +306,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                       e.stopPropagation();
                       setShowMenu(showMenu === doc.id ? null : doc.id);
                     }}
-                    className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white"
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
                   >
                     <MoreVertical size={16} />
                   </button>
@@ -296,12 +314,12 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                   {/* Dropdown Menu */}
                   {showMenu === doc.id && (
                     <div
-                      className="absolute right-0 top-10 w-40 rounded-xl bg-[#1a1c24] border border-white/10 shadow-2xl overflow-hidden z-10"
+                      className="absolute right-0 top-10 w-40 rounded-xl bg-popover dark:bg-[#1a1c24] border border-border shadow-2xl overflow-hidden z-10"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         onClick={() => startEditing(doc)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-muted"
                       >
                         <Pencil size={14} />
                         Rename

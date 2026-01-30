@@ -54,18 +54,17 @@ function Toast({ message, onUndo, onClose }: { message: string; onUndo?: () => v
 
     return (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl"
-                style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl glass-panel">
                 <Scissors size={16} className="text-blue-400" />
                 <span className="text-white text-sm font-medium">{message}</span>
                 {onUndo && (
                     <button onClick={onUndo}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-xs font-medium transition-all">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs font-medium transition-all">
                         <Undo2 size={12} />
                         Undo
                     </button>
                 )}
-                <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all">
+                <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all">
                     <X size={14} />
                 </button>
             </div>
@@ -240,8 +239,21 @@ ${styles}
                 breakIndex: currentBreakIndex
             });
         }
-        setPages(pagesResult.length > 0 ? pagesResult : [{ content: effectiveHtml, hasManualBreak: false, breakIndex: -1 }]);
-    }, [effectiveHtml]);
+        
+        // Filter out empty pages (pages with no visible content)
+        // This prevents blank pages when page-break is at the end or content ends exactly at page boundary
+        const filteredPages = pagesResult.filter(page => {
+            // Check if page has actual visible content (not just whitespace or empty tags)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = page.content;
+            const textContent = tempDiv.textContent?.trim() || '';
+            // Also check for non-text elements like images, tables, etc.
+            const hasElements = tempDiv.querySelector('img, table, hr, svg, canvas');
+            return textContent.length > 0 || hasElements !== null;
+        });
+        
+        setPages(filteredPages.length > 0 ? filteredPages : [{ content: effectiveHtml || '<p>No content</p>', hasManualBreak: false, breakIndex: -1 }]);
+    }, [effectiveHtml, contentDims.height]);
 
     const handleMeasureIframeLoad = useCallback(() => {
         // Wait for fonts and layout to settle before measuring
@@ -436,7 +448,7 @@ ${styles}
 
     return (
         <div className={`flex flex-col h-full transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}
-            style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e293b 100%)' }}>
+            style={{ background: 'var(--gradient-background)' }}>
 
             {/* Hidden measurement iframe - must have proper width to measure correctly */}
             <iframe ref={measureIframeRef} srcDoc={measurementHtml} onLoad={handleMeasureIframeLoad}
@@ -452,21 +464,20 @@ ${styles}
             {/* ========== PREMIUM TOOLBAR ========== */}
             <div className="relative z-20 print:hidden">
                 {/* Glassmorphism toolbar with auto-fade */}
-                <div className="mx-4 mt-4 rounded-2xl overflow-hidden opacity-85 hover:opacity-100 transition-opacity duration-200"
-                    style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div className="mx-4 mt-4 rounded-2xl overflow-hidden opacity-85 hover:opacity-100 transition-opacity duration-200 glass-panel">
                     <div className="px-6 py-4">
                         <div className="flex items-center justify-between">
                             {/* Left section */}
                             <div className="flex items-center gap-4">
                                 <button onClick={onBackToEdit}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200">
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200">
                                     <ChevronLeft size={18} />
                                     <span className="font-medium">Back to Edit</span>
                                 </button>
 
-                                <div className="h-6 w-px bg-white/20" />
+                                <div className="h-6 w-px bg-border" />
 
-                                <div className="flex items-center gap-2 text-white/60">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <FileText size={16} />
                                     <span className="text-sm font-medium">
                                         {isRendering ? 'Preparing...' : `${totalPages} pages`}
@@ -477,18 +488,18 @@ ${styles}
                             {/* Center section - Page navigation */}
                             <div className="flex items-center gap-3">
                                 <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 0}
-                                    className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                                     <ChevronLeft size={18} />
                                 </button>
 
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10">
-                                    <span className="text-white font-semibold">{currentPage + 1}</span>
-                                    <span className="text-white/40">/</span>
-                                    <span className="text-white/60">{totalPages}</span>
+                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted">
+                                    <span className="text-foreground font-semibold">{currentPage + 1}</span>
+                                    <span className="text-muted-foreground/60">/</span>
+                                    <span className="text-muted-foreground">{totalPages}</span>
                                 </div>
 
                                 <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages - 1}
-                                    className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                                     <ChevronRight size={18} />
                                 </button>
                             </div>
@@ -496,27 +507,27 @@ ${styles}
                             {/* Right section */}
                             <div className="flex items-center gap-4">
                                 {/* Zoom slider */}
-                                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5">
+                                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/50">
                                     <button onClick={() => setZoom(Math.max(30, zoom - 10))}
-                                        className="p-1 text-white/60 hover:text-white transition-colors">
+                                        className="p-1 text-muted-foreground hover:text-foreground transition-colors">
                                         <ZoomOut size={16} />
                                     </button>
                                     <div className="w-24">
                                         <Slider value={[zoom]} onValueChange={(v: number[]) => setZoom(v[0])} min={30} max={150} step={5}
                                             className="cursor-pointer" />
                                     </div>
-                                    <span className="text-white/60 text-sm w-10 text-center">{zoom}%</span>
+                                    <span className="text-muted-foreground text-sm w-10 text-center">{zoom}%</span>
                                     <button onClick={() => setZoom(Math.min(150, zoom + 10))}
-                                        className="p-1 text-white/60 hover:text-white transition-colors">
+                                        className="p-1 text-muted-foreground hover:text-foreground transition-colors">
                                         <ZoomIn size={16} />
                                     </button>
                                 </div>
 
-                                <div className="h-6 w-px bg-white/20" />
+                                <div className="h-6 w-px bg-border" />
 
                                 {/* Fullscreen toggle */}
                                 <button onClick={() => setIsFullscreen(!isFullscreen)}
-                                    className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all">
+                                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
                                     {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                                 </button>
 
@@ -541,7 +552,7 @@ ${styles}
                                 </button>
 
                                 <button onClick={() => window.print()}
-                                    className="p-2.5 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                                    className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                                     title="Print">
                                     <Printer size={18} />
                                 </button>

@@ -11,10 +11,11 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch user's documents
+  // Fetch user's documents - Only select metadata for performance
+  // Don't fetch 'content' JSONB to avoid loading large Tiptap documents
   const { data: documents, error } = await supabase
     .from('documents')
-    .select('*')
+    .select('id, title, status, created_at, updated_at')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
 

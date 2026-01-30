@@ -115,6 +115,7 @@ export function getPdfStyles(styleConfig: StyleConfig, margins: PageMargins = DE
         }
         
         /* Typography - Relaxed & Professional */
+        /* Headings use theme color by default, but inline styles (from textStyle marks) take precedence */
         h1 {
             font-size: 20pt;
             font-weight: bold;
@@ -143,6 +144,19 @@ export function getPdfStyles(styleConfig: StyleConfig, margins: PageMargins = DE
             margin-top: 1.5em;
             margin-bottom: 0.75em;
             page-break-after: avoid;
+        }
+        
+        /* Preserve inline text colors from Tiptap textStyle marks */
+        /* These inline styles should always take precedence over theme colors */
+        h1 span[style*="color"],
+        h2 span[style*="color"],
+        h3 span[style*="color"],
+        h4 span[style*="color"],
+        h5 span[style*="color"],
+        h6 span[style*="color"] {
+            /* Inline styles already have highest specificity (1-0-0-0) */
+            /* This selector (0-0-2-1) ensures the span's inline color is not affected by parent */
+            /* The inline style will naturally override the parent h1/h2/h3 color */
         }
         
         h4, h5, h6 {
@@ -223,6 +237,33 @@ export function getPdfStyles(styleConfig: StyleConfig, margins: PageMargins = DE
         li > ul > li > ul > li::before {
             content: "▪";
             font-size: 0.8em;
+        }
+        
+        /* Custom bullet styles via data-bullet-style attribute */
+        ul[data-bullet-style="disc"] > li::before {
+            content: "•";
+        }
+        
+        ul[data-bullet-style="circle"] > li::before {
+            content: "○";
+        }
+        
+        ul[data-bullet-style="square"] > li::before {
+            content: "■";
+            font-size: 0.8em;
+        }
+        
+        ul[data-bullet-style="dash"] > li::before {
+            content: "—";
+        }
+        
+        ul[data-bullet-style="check"] > li::before {
+            content: "✓";
+            color: #10b981;
+        }
+        
+        ul[data-bullet-style="arrow"] > li::before {
+            content: "→";
         }
         
         /* Tables */

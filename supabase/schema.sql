@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL DEFAULT 'Untitled Document',
     content JSONB NOT NULL DEFAULT '{"type": "doc", "content": []}'::jsonb,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'generated')),
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -122,6 +123,7 @@ CREATE TRIGGER on_auth_user_created
 CREATE INDEX IF NOT EXISTS idx_documents_user_id ON public.documents(user_id);
 CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON public.documents(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON public.documents(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents(status);
 
 -- =============================================
 -- 6. SAMPLE DATA (Optional - for testing)

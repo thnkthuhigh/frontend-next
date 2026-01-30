@@ -43,7 +43,7 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
         }, [items]);
 
         const groupOrder = ["ai", "blocks", "insert"];
-        
+
         // Memoized flat list of items for keyboard navigation
         const flatItems = useMemo(() => {
             return groupOrder.flatMap((group) => groupedItems[group] || []);
@@ -98,8 +98,8 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
 
         if (flatItems.length === 0) {
             return (
-                <div className="w-72 rounded-xl bg-[#1a1d24]/95 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/30 p-4">
-                    <p className="text-white/50 text-sm text-center">No commands found</p>
+                <div className="w-72 rounded-xl bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border shadow-xl p-4">
+                    <p className="text-muted-foreground text-sm text-center">No commands found</p>
                 </div>
             );
         }
@@ -107,7 +107,7 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
         let globalIndex = 0;
 
         return (
-            <div className="w-72 max-h-80 overflow-y-auto rounded-xl bg-[#1a1d24]/95 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/30 py-2">
+            <div className="w-72 max-h-80 overflow-y-auto rounded-xl bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border shadow-xl py-2">
                 {groupOrder.map((groupKey) => {
                     const groupItems = groupedItems[groupKey];
                     if (!groupItems || groupItems.length === 0) return null;
@@ -119,7 +119,7 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                             {/* Group Header */}
                             <div className="px-3 py-1.5 flex items-center gap-2">
                                 <span className="text-sm">{groupInfo.icon}</span>
-                                <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                                     {groupInfo.label}
                                 </span>
                             </div>
@@ -136,8 +136,8 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                         className={cn(
                                             "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
                                             isSelected
-                                                ? "bg-white/10 text-white"
-                                                : "text-white/70 hover:bg-white/5 hover:text-white"
+                                                ? "bg-primary/10 text-foreground"
+                                                : "text-foreground/70 hover:bg-muted hover:text-foreground"
                                         )}
                                     >
                                         <span
@@ -145,19 +145,19 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                                 "w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium",
                                                 isSelected
                                                     ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30"
-                                                    : "bg-white/5"
+                                                    : "bg-muted"
                                             )}
                                         >
                                             {item.icon}
                                         </span>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate">{item.title}</p>
-                                            <p className="text-xs text-white/40 truncate">
+                                            <p className="text-xs text-muted-foreground truncate">
                                                 {item.description}
                                             </p>
                                         </div>
                                         {isSelected && (
-                                            <span className="text-[10px] text-white/30 px-1.5 py-0.5 rounded bg-white/5">
+                                            <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
                                                 Enter
                                             </span>
                                         )}
@@ -169,8 +169,8 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                 })}
 
                 {/* Footer hint */}
-                <div className="px-3 pt-2 mt-1 border-t border-white/5">
-                    <p className="text-[10px] text-white/30 text-center">
+                <div className="px-3 pt-2 mt-1 border-t border-border">
+                    <p className="text-[10px] text-muted-foreground text-center">
                         ↑↓ Navigate • Enter Select • Esc Close
                     </p>
                 </div>

@@ -1,11 +1,18 @@
 /**
  * HTML Generator Utilities
  * Shared functions for converting Tiptap JSON to HTML
+ *
+ * IMPORTANT: This generates semantic HTML WITHOUT hardcoded colors.
+ * Colors and styling are applied by CSS from shared-styles.ts via buildPdfHtml.
+ * This ensures consistent styling between Edit Tab export and Preview Tab export.
  */
 
 /**
  * Generate HTML string from Tiptap JSON content
  * Used by both PagedPreview and document-formatter for consistent HTML output
+ *
+ * NOTE: Do NOT add inline color styles here - let CSS handle colors!
+ * This ensures the styleConfig colors (headingColor, accentColor) are applied correctly.
  */
 export function generateHtmlFromJson(json: Record<string, unknown> | null): string {
     if (!json || !json.content) return '';
@@ -28,6 +35,7 @@ export function generateHtmlFromJson(json: Record<string, unknown> | null): stri
                     if (mark.type === 'strike') result = `<s>${result}</s>`;
                     if (mark.type === 'code') result = `<code>${result}</code>`;
                     if (mark.type === 'highlight') result = `<mark>${result}</mark>`;
+                    // Only textStyle with explicit user color should be inline
                     if (mark.type === 'textStyle' && mark.attrs?.color) {
                         result = `<span style="color: ${mark.attrs.color}">${result}</span>`;
                     }
@@ -38,51 +46,61 @@ export function generateHtmlFromJson(json: Record<string, unknown> | null): stri
 
         const children = content ? content.map(renderNode).join('') : '';
         const textAlign = attrs?.textAlign as string | undefined;
+        const alignStyle = textAlign ? ` style="text-align: ${textAlign};"` : '';
 
         switch (type) {
             case 'doc':
                 return children;
+            // Paragraphs and headings - NO inline color, let CSS handle it
             case 'paragraph':
-                return `<p style="margin: 0.75em 0; line-height: 1.6; color: #000000;${textAlign ? ` text-align: ${textAlign};` : ''}">${children || '<br>'}</p>`;
+                return `<p${alignStyle}>${children || '<br>'}</p>`;
             case 'heading': {
                 const level = (attrs?.level as number) || 1;
-                const headingStyle = `margin-top: ${level === 1 ? '1.5em' : '1.2em'}; margin-bottom: 0.5em; font-weight: bold; color: #000000;${textAlign ? ` text-align: ${textAlign};` : ''}`;
-                return `<h${level} style="${headingStyle}">${children}</h${level}>`;
+                return `<h${level}${alignStyle}>${children}</h${level}>`;
             }
-            case 'bulletList':
-                return `<ul style="margin: 0.5em 0; padding-left: 1.5em; color: #000000;">${children}</ul>`;
+            // Lists - NO inline color, let CSS handle it
+            // Support bulletStyle attribute for custom markers
+            case 'bulletList': {
+                const bulletStyle = attrs?.bulletStyle as string | undefined;
+                const styleAttr = bulletStyle ? ` data-bullet-style="${bulletStyle}"` : '';
+                return `<ul${styleAttr}>${children}</ul>`;
+            }
             case 'orderedList':
-                return `<ol style="margin: 0.5em 0; padding-left: 1.5em; color: #000000;">${children}</ol>`;
+                return `<ol>${children}</ol>`;
             case 'listItem':
-                return `<li style="margin: 0.25em 0; color: #000000;">${children}</li>`;
+                return `<li>${children}</li>`;
+            // Blockquote - Let CSS handle styling
             case 'blockquote':
-                return `<blockquote style="border-left: 3px solid #d1d5db; padding-left: 1em; margin: 1em 0; color: #4b5563; font-style: italic;">${children}</blockquote>`;
+                return `<blockquote>${children}</blockquote>`;
+            // Code blocks - semantic only
             case 'codeBlock': {
                 const lang = (attrs?.language as string) || '';
-                return `<pre style="background-color: #f3f4f6; padding: 1em; border-radius: 0.375rem; overflow-x: auto; margin: 1em 0;"><code class="language-${lang}" style="color: #1f2937; font-family: 'Consolas', 'Monaco', monospace;">${children}</code></pre>`;
+                return `<pre><code class="language-${lang}">${children}</code></pre>`;
             }
             case 'horizontalRule':
-                return '<hr style="margin: 1em 0; border: none; border-top: 1px solid #e5e7eb;">';
+                return '<hr>';
             case 'pageBreak':
                 return '<div class="page-break" data-page-break="true"></div>';
+            // Tables - minimal styling for structure
             case 'table':
-                return `<table style="border-collapse: collapse; width: 100%; margin: 1em 0;">${children}</table>`;
+                return `<table>${children}</table>`;
             case 'tableRow':
                 return `<tr>${children}</tr>`;
             case 'tableHeader':
-                return `<th style="border: 1px solid #e5e7eb; padding: 8px; background-color: #f9fafb; font-weight: 600; text-align: left; color: #000000;">${children}</th>`;
+                return `<th>${children}</th>`;
             case 'tableCell':
-                return `<td style="border: 1px solid #e5e7eb; padding: 8px; color: #000000;">${children}</td>`;
+                return `<td>${children}</td>`;
+            // Callouts - keep class-based styling
             case 'callout': {
                 const calloutType = (attrs?.type as string) || 'info';
-                const calloutStyles: Record<string, { bg: string; border: string; icon: string }> = {
-                    info: { bg: '#eff6ff', border: '#3b82f6', icon: '💡' },
-                    warning: { bg: '#fef3c7', border: '#f59e0b', icon: '⚠️' },
-                    success: { bg: '#ecfdf5', border: '#10b981', icon: '✅' },
-                    note: { bg: '#f3f4f6', border: '#6b7280', icon: '📝' },
+                const icons: Record<string, string> = {
+                    info: '💡',
+                    warning: '⚠️',
+                    success: '✅',
+                    note: '📝',
                 };
-                const style = calloutStyles[calloutType] || calloutStyles.info;
-                return `<div class="callout callout-${calloutType}" style="background-color: ${style.bg}; border-left: 4px solid ${style.border}; padding: 1em 1em 1em 1.25em; margin: 1em 0; border-radius: 0.375rem;"><span style="margin-right: 0.5em;">${style.icon}</span>${children}</div>`;
+                const icon = icons[calloutType] || icons.info;
+                return `<div class="callout callout-${calloutType}"><span>${icon}</span>${children}</div>`;
             }
             default:
                 return children;

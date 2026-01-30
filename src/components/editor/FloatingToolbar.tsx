@@ -87,14 +87,14 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
             // Position toolbar above the selection
             const toolbarHeight = 44;
             const toolbarWidth = toolbarRef.current?.offsetWidth || 280;
-            
+
             // Calculate center of selection
             const selectionCenterX = (start.left + end.right) / 2;
-            
+
             // Get editor container bounds
             const editorElement = view.dom.closest('.editor-content-wrapper');
             const editorRect = editorElement?.getBoundingClientRect() || { left: 0, right: window.innerWidth };
-            
+
             // Calculate left position, keeping toolbar within bounds
             let left = selectionCenterX - toolbarWidth / 2;
             left = Math.max(editorRect.left + 8, Math.min(left, editorRect.right - toolbarWidth - 8));
@@ -125,10 +125,10 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
 
     const handleAIAction = useCallback(async (action: AIAction) => {
         if (!editor) return;
-        
+
         const { from, to } = editor.state.selection;
         const selectedText = editor.state.doc.textBetween(from, to, " ");
-        
+
         if (!selectedText.trim()) return;
 
         setIsProcessing(true);
@@ -137,7 +137,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
 
         try {
             const result = await action.action(selectedText);
-            
+
             // Replace selected text with AI result
             editor
                 .chain()
@@ -161,17 +161,17 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
 
     if (!editor || !isVisible) return null;
 
-    const ToolbarButton = ({ 
-        onClick, 
-        isActive, 
-        disabled, 
-        children, 
-        title 
-    }: { 
-        onClick: () => void; 
-        isActive?: boolean; 
-        disabled?: boolean; 
-        children: React.ReactNode; 
+    const ToolbarButton = ({
+        onClick,
+        isActive,
+        disabled,
+        children,
+        title
+    }: {
+        onClick: () => void;
+        isActive?: boolean;
+        disabled?: boolean;
+        children: React.ReactNode;
         title?: string;
     }) => (
         <button
@@ -182,8 +182,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
             className={cn(
                 "p-2 rounded-lg transition-all duration-150",
                 isActive
-                    ? "bg-white/20 text-white"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    ? "bg-primary/20 text-foreground"
+                    : "text-foreground/70 hover:text-foreground hover:bg-muted",
                 disabled && "opacity-40 cursor-not-allowed"
             )}
         >
@@ -195,7 +195,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
         <div
             ref={toolbarRef}
             onMouseDown={handleToolbarMouseDown}
-            className="fixed z-40 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-[#1a1d24]/95 backdrop-blur-xl border border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="fixed z-40 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border animate-in fade-in slide-in-from-bottom-2 duration-150"
             style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`,
@@ -259,18 +259,18 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
                         <Sparkles size={16} />
                     )}
                     <span className="text-xs font-medium">AI</span>
-                    <ChevronDown 
-                        size={12} 
+                    <ChevronDown
+                        size={12}
                         className={cn(
                             "transition-transform duration-200",
                             showAIMenu && "rotate-180"
-                        )} 
+                        )}
                     />
                 </button>
 
                 {/* AI Actions Dropdown */}
                 {showAIMenu && (
-                    <div 
+                    <div
                         className="absolute top-full left-0 mt-2 w-40 py-1 rounded-xl bg-[#1a1d24]/95 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/30 z-50"
                     >
                         {AI_ACTIONS.map((action) => (
@@ -283,7 +283,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
                                     "w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                                     processingAction === action.id
                                         ? "bg-purple-500/20 text-purple-300"
-                                        : "text-white/70 hover:text-white hover:bg-white/10"
+                                        : "text-foreground/70 hover:text-foreground hover:bg-muted"
                                 )}
                             >
                                 {processingAction === action.id ? (

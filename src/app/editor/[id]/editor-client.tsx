@@ -7,11 +7,11 @@ import { Database } from "@/lib/supabase/database.types";
 import { useDocumentStore } from "@/store/document-store";
 import { useAutoSave } from "@/hooks/use-documents";
 import { DocumentFormatter } from "@/components/document-formatter";
-import { 
-  ArrowLeft, 
-  Cloud, 
-  CloudOff, 
-  Loader2, 
+import {
+  ArrowLeft,
+  Cloud,
+  CloudOff,
+  Loader2,
   Check,
   AlertCircle
 } from "lucide-react";
@@ -24,10 +24,21 @@ interface EditorPageClientProps {
   userId: string;
 }
 
+interface SaveStatus {
+  isSaving: boolean;
+  lastSaved: Date | null;
+  saveError: string | null;
+}
+
 export function EditorPageClient({ document, userId }: EditorPageClientProps) {
   const router = useRouter();
-  const [isInitialized, setIsInitialized] = useState(false);
-  
+  const [initializedDocId, setInitializedDocId] = useState<string | null>(null);
+
+  // Use status field to determine initial view mode
+  // draft -> show input/generate view
+  // generated -> show editor view
+  const initialViewMode = document.status === 'generated' ? 'editor' : 'input';
+
   const {
     title,
     setTitle,
@@ -43,57 +54,93 @@ export function EditorPageClient({ document, userId }: EditorPageClientProps) {
     setHtmlContent,
     selectedStyle,
     setSelectedStyle,
+    margins,
+    setMargins,
+    marginPreset,
+    setMarginPreset,
+    setRawContent,
     reset,
   } = useDocumentStore();
 
-  // Initialize store from document data
+  // Initialize store from document data - triggers when document.id changes
   useEffect(() => {
-    if (!isInitialized) {
+    if (initializedDocId !== document.id) {
+      // Reset rawContent to prevent showing content from previous document
+      setRawContent("");
+      
       // Load document data into store
       setTitle(document.title || "");
-      
+
       // Parse content JSON
       if (document.content && typeof document.content === 'object') {
         const content = document.content as Record<string, unknown>;
-        
-        // Check if it's a structured document with metadata
+
+        // Check if it's a structured document with metadata (P1-DATA-001: Persist settings)
         if (content.metadata) {
-          const metadata = content.metadata as Record<string, string>;
-          setSubtitle(metadata.subtitle || "");
-          setAuthor(metadata.author || "");
-          setDate(metadata.date || "");
-          setSelectedStyle(metadata.style || "professional");
+          const metadata = content.metadata as Record<string, unknown>;
+          setSubtitle((metadata.subtitle as string) || "");
+          setAuthor((metadata.author as string) || "");
+          setDate((metadata.date as string) || "");
+          setSelectedStyle((metadata.style as string) || "professional");
+          
+          // Restore margins and marginPreset if available
+          if (metadata.margins && typeof metadata.margins === 'object') {
+            setMargins(metadata.margins as any);
+          }
+          if (metadata.marginPreset) {
+            setMarginPreset(metadata.marginPreset as any);
+          }
+        } else {
+          // Reset metadata fields for new/empty documents
+          setSubtitle("");
+          setAuthor("");
+          setDate("");
         }
-        
+
         // Set JSON content (Tiptap format)
         if (content.tiptap) {
           setJsonContent(content.tiptap as Record<string, unknown>);
         } else if (content.type === 'doc') {
           // Direct Tiptap JSON format
           setJsonContent(content as Record<string, unknown>);
+        } else {
+          // Reset JSON content for new/empty documents
+          setJsonContent({ type: 'doc', content: [] });
         }
-        
+
         // Set HTML if available
         if (content.html) {
           setHtmlContent(content.html as string);
+        } else {
+          // Reset HTML content for new/empty documents
+          setHtmlContent("");
         }
+      } else {
+        // Reset all content fields for completely empty documents
+        setSubtitle("");
+        setAuthor("");
+        setDate("");
+        setJsonContent({ type: 'doc', content: [] });
+        setHtmlContent("");
       }
-      
-      setIsInitialized(true);
-    }
-  }, [document, isInitialized, setTitle, setSubtitle, setAuthor, setDate, setJsonContent, setHtmlContent, setSelectedStyle]);
 
-  // Prepare content for auto-save (combine all document data)
+      setInitializedDocId(document.id);
+    }
+  }, [document, initializedDocId, setTitle, setSubtitle, setAuthor, setDate, setJsonContent, setHtmlContent, setSelectedStyle, setRawContent]);
+
+  // Prepare content for auto-save (P1-DATA-001: Persist all settings)
   const contentToSave: Json = {
     metadata: {
       subtitle,
       author,
       date,
       style: selectedStyle,
-    },
+      margins: margins as unknown as Json,
+      marginPreset,
+    } as Json,
     tiptap: jsonContent as Json,
     html: htmlContent,
-  };
+  } as Json;
 
   // Auto-save hook
   const { isSaving, lastSaved, saveError } = useAutoSave(
@@ -115,63 +162,29 @@ export function EditorPageClient({ document, userId }: EditorPageClientProps) {
     router.push("/dashboard");
   }, [router]);
 
-  if (!isInitialized) {
+  if (initializedDocId !== document.id) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d0e12]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
       </div>
     );
   }
 
+  // Prepare save status for unified header
+  const saveStatus: SaveStatus = {
+    isSaving,
+    lastSaved,
+    saveError,
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Cloud Sync Status Bar */}
-      <div className="h-10 bg-[#0a0b0e] border-b border-white/5 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors"
-          >
-            <ArrowLeft size={16} />
-            <span>Dashboard</span>
-          </Link>
-          <div className="h-4 w-px bg-white/10" />
-          <span className="text-white/30 text-xs">
-            Editing: {document.title}
-          </span>
-        </div>
-
-        {/* Save Status */}
-        <div className="flex items-center gap-2">
-          {saveError ? (
-            <div className="flex items-center gap-2 text-red-400">
-              <AlertCircle size={14} />
-              <span className="text-xs">Error saving</span>
-            </div>
-          ) : isSaving ? (
-            <div className="flex items-center gap-2 text-white/50">
-              <Loader2 size={14} className="animate-spin" />
-              <span className="text-xs">Saving...</span>
-            </div>
-          ) : lastSaved ? (
-            <div className="flex items-center gap-2 text-green-400/70">
-              <Cloud size={14} />
-              <Check size={12} />
-              <span className="text-xs">Saved</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-white/30">
-              <CloudOff size={14} />
-              <span className="text-xs">Not saved yet</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Editor */}
-      <div className="flex-1">
-        <DocumentFormatter />
-      </div>
+      {/* Main Editor with unified header */}
+      <DocumentFormatter
+        initialViewMode={initialViewMode}
+        documentId={document.id}
+        saveStatus={saveStatus}
+      />
     </div>
   );
 }

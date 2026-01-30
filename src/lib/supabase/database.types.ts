@@ -39,6 +39,7 @@ export interface Database {
           user_id: string
           title: string
           content: Json
+          status: 'draft' | 'generated'
           created_at: string
           updated_at: string
         }
@@ -47,6 +48,7 @@ export interface Database {
           user_id: string
           title: string
           content: Json
+          status?: 'draft' | 'generated'
           created_at?: string
           updated_at?: string
         }
@@ -55,6 +57,7 @@ export interface Database {
           user_id?: string
           title?: string
           content?: Json
+          status?: 'draft' | 'generated'
           created_at?: string
           updated_at?: string
         }
