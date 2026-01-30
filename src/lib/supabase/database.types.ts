@@ -70,6 +70,52 @@ export interface Database {
           }
         ]
       }
+      document_versions: {
+        Row: {
+          id: string
+          document_id: string
+          version_number: number
+          content: Json
+          title: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+        }
+        Insert: {
+          id?: string
+          document_id: string
+          version_number: number
+          content: Json
+          title?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+        }
+        Update: {
+          id?: string
+          document_id?: string
+          version_number?: number
+          content?: Json
+          title?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_versions_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_versions_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

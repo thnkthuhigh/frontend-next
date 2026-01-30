@@ -21,6 +21,7 @@ import {
   CloudOff,
   Check,
   AlertCircle,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { OutlinePanel } from "@/components/editor/outline-panel";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import { DocumentStylesPanel } from "@/components/editor/DocumentStylesPanel";
+import { VersionHistoryPanel } from "@/components/editor/VersionHistoryPanel";
 import { TemplatesPanel } from "@/components/templates/templates-panel";
 import { PageSetup } from "@/components/editor/PageSetup";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -45,7 +47,7 @@ import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 type ViewMode = "input" | "editor";
 type Tab = "paste" | "templates";
-type SidebarTab = "theme" | "structure" | "styles";
+type SidebarTab = "theme" | "structure" | "styles" | "history";
 
 import { STYLE_OPTIONS } from "@/lib/document-styles";
 
@@ -893,6 +895,21 @@ export function DocumentFormatter({
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
                 )}
               </button>
+              <button
+                onClick={() => setSidebarTab("history")}
+                className={cn(
+                  "flex-1 px-3 py-3.5 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 relative mobile:py-2 mobile:px-2",
+                  sidebarTab === "history"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <History size={13} className="mobile:w-3 mobile:h-3" />
+                <span className="mobile:text-[10px]">History</span>
+                {sidebarTab === "history" && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
+                )}
+              </button>
             </div>
 
             {/* Sidebar Content */}
@@ -914,6 +931,17 @@ export function DocumentFormatter({
               ) : sidebarTab === "styles" ? (
                 /* Document Styles Panel - Bulk Formatting */
                 <DocumentStylesPanel editor={editor} />
+              ) : sidebarTab === "history" ? (
+                /* Version History Panel */
+                <VersionHistoryPanel
+                  documentId={documentId || null}
+                  currentContent={jsonContent}
+                  currentTitle={title}
+                  onVersionRestored={() => {
+                    // Reload document content after restore
+                    window.location.reload();
+                  }}
+                />
               ) : (
                 /* Theme & Metadata Panel */
                 <div className="space-y-6">
