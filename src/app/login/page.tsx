@@ -70,10 +70,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Premium Background Effects */}
+      {/* Monochrome Background Effects */}
       <div className="absolute inset-0 -z-10 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-[120px] animate-float-slow" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-zinc-500/5 dark:bg-zinc-400/5 rounded-full blur-[120px] animate-float-slow" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,var(--background)_70%)]" />
       </div>
@@ -83,9 +83,9 @@ export default function LoginPage() {
         <div className="text-center space-y-4">
           <Link href="/" className="inline-flex items-center justify-center">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-xl opacity-50 animate-pulse" />
+              <div className="absolute inset-0 bg-amber-500 rounded-2xl blur-xl opacity-30 animate-pulse" />
               <div className="relative p-4 rounded-2xl glass-card">
-                <Sparkles className="w-8 h-8 text-blue-400" />
+                <Sparkles className="w-8 h-8 text-amber-500" />
               </div>
             </div>
           </Link>

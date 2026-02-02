@@ -1,64 +1,60 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
-  Heading1,
-  Heading2,
-  Heading3,
   FileText,
   Hash,
   List,
-  Scissors, // Page Break icon
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { cn } from "@/lib/utils";
 import { extractHeadings, getDocumentStats } from "@/lib/json-utils";
 
-// Heading icon map by level (0 = page break)
-const headingIcons: Record<number, React.ElementType> = {
-  0: Scissors, // Page Break
-  1: Heading1,
-  2: Heading2,
-  3: Heading3,
-};
-
-// Outline Item Component - displays a single heading or page break
+// Outline Item Component - Enhanced with strong indentation and active state
 interface OutlineItemProps {
   id: string;
   text: string;
   level: number;
   index: number;
+  isActive: boolean;
   onScrollTo: (index: number) => void;
 }
 
-function OutlineItemComponent({ id, text, level, index, onScrollTo }: OutlineItemProps) {
-  const IconComponent = headingIcons[level] || Hash;
+function OutlineItemComponent({ id, text, level, index, isActive, onScrollTo }: OutlineItemProps) {
   const isPageBreak = level === 0;
-  const indentClass = level === 1 ? "pl-0" : level === 2 ? "pl-3" : level === 3 ? "pl-6" : "pl-0";
+  
+  // Strong indentation for hierarchy - 16px per level for clear tree structure
+  const indentPadding = level === 1 ? 8 : level === 2 ? 24 : level === 3 ? 40 : 8;
 
   return (
     <button
       onClick={() => onScrollTo(index)}
       className={cn(
-        "w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all",
-        "hover:bg-card/80 hover:border-border border border-transparent",
-        isPageBreak && "border-dashed border-orange-500/30 bg-orange-500/5",
-        indentClass
+        "group relative w-full flex items-center gap-2 py-2.5 text-left transition-all duration-300 ease-out",
+        "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg",
+        isActive && "bg-zinc-100 dark:bg-zinc-800/60"
       )}
+      style={{ paddingLeft: `${indentPadding}px` }}
     >
+      {/* Active Indicator Bar - Neutral color stripe on left */}
       <div className={cn(
-        "p-1 rounded shrink-0",
-        isPageBreak ? "bg-orange-500/20 text-orange-500" :
-          level === 1 ? "bg-primary/20 text-primary" :
-            level === 2 ? "bg-blue-500/20 text-blue-500" :
-              "bg-secondary/50 text-muted-foreground"
-      )}>
-        <IconComponent size={12} />
-      </div>
+        "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full transition-all duration-300",
+        isActive
+          ? "h-6 bg-zinc-800 dark:bg-zinc-200 opacity-100"
+          : "h-0 bg-zinc-400 opacity-0 group-hover:h-4 group-hover:opacity-60"
+      )} />
+      
+      {/* Text with strong typography hierarchy */}
       <span className={cn(
-        "text-xs truncate flex-1",
-        isPageBreak ? "font-medium text-orange-500 italic" :
-          level === 1 ? "font-semibold text-foreground" : "text-muted-foreground"
+        "truncate transition-colors duration-200 flex-1 pl-2",
+        isPageBreak
+          ? "text-[10px] italic text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
+          : level === 1
+            ? "text-[13px] font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-zinc-100"
+            : level === 2
+              ? "text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-800 dark:group-hover:text-zinc-200"
+              : "text-[11px] font-medium text-zinc-500 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300",
+        isActive && "!text-zinc-900 dark:!text-zinc-100 font-semibold"
       )}>
         {text || "Untitled"}
       </span>
@@ -67,7 +63,7 @@ function OutlineItemComponent({ id, text, level, index, onScrollTo }: OutlineIte
 }
 
 
-// Main Outline Panel component - reads from jsonContent (Single Source of Truth)
+// Main Outline Panel component - Flat design with active tracking
 interface OutlinePanelProps {
   onScrollToBlock?: (blockId: string) => void;
   onScrollToHeading?: (headingIndex: number) => void;
@@ -75,6 +71,7 @@ interface OutlinePanelProps {
 
 export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePanelProps) {
   const { jsonContent } = useDocumentStore();
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   // Extract headings from JSON content (Projection View)
   const headings = useMemo(() => extractHeadings(jsonContent), [jsonContent]);
@@ -84,6 +81,8 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
 
   // Scroll to heading by index (scrolls to N-th heading in editor)
   const handleScrollToHeading = (index: number) => {
+    setActiveIndex(index); // Track active heading
+    
     if (onScrollToHeading) {
       onScrollToHeading(index);
     } else {
@@ -98,32 +97,23 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
     }
   };
 
-  // Empty state
+  // Empty state - minimal
   if (headings.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <div className="p-3 rounded-full bg-secondary/50 mb-3">
-          <List size={20} className="text-muted-foreground opacity-60" />
+      <div className="py-6 px-2">
+        <div className="text-center">
+          <FileText size={24} className="mx-auto mb-2 text-muted-foreground/30" />
+          <p className="text-[11px] text-muted-foreground/50">
+            Add headings to see outline
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground mb-1">
-          No headings yet
-        </p>
-        <p className="text-[10px] text-muted-foreground/60">
-          Add headings (H1, H2, H3) to see outline
-        </p>
 
-        {/* Stats */}
+        {/* Stats - minimal */}
         {stats.words > 0 && (
-          <div className="mt-4 pt-4 border-t border-border w-full">
-            <div className="flex justify-around text-[10px] text-muted-foreground">
-              <div className="text-center">
-                <div className="font-medium text-foreground">{stats.words}</div>
-                <div>words</div>
-              </div>
-              <div className="text-center">
-                <div className="font-medium text-foreground">{stats.paragraphs}</div>
-                <div>paragraphs</div>
-              </div>
+          <div className="mt-6 pt-4 border-t border-border/30">
+            <div className="flex justify-between text-[10px] text-muted-foreground/40 px-1">
+              <span>{stats.words} words</span>
+              <span>{stats.paragraphs} ¶</span>
             </div>
           </div>
         )}
@@ -132,18 +122,18 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
   }
 
   return (
-    <div className="space-y-2">
-      {/* Header with stats */}
-      <div className="flex justify-between items-center px-1 pb-2 border-b border-border">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+    <div className="space-y-3 px-1">
+      {/* Header - minimal */}
+      <div className="flex justify-between items-center px-2">
+        <span className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">
           Outline
         </span>
-        <span className="text-[10px] text-muted-foreground">
-          {headings.length} heading{headings.length !== 1 ? 's' : ''}
+        <span className="text-[10px] text-muted-foreground/40 bg-muted/50 px-1.5 py-0.5 rounded">
+          {headings.length}
         </span>
       </div>
 
-      {/* Heading list */}
+      {/* Heading list - with active tracking */}
       <div className="flex flex-col gap-0.5">
         {headings.map((heading, idx) => (
           <OutlineItemComponent
@@ -152,21 +142,22 @@ export function OutlinePanel({ onScrollToBlock, onScrollToHeading }: OutlinePane
             text={heading.text}
             level={heading.level}
             index={heading.index}
+            isActive={activeIndex === heading.index}
             onScrollTo={handleScrollToHeading}
           />
         ))}
       </div>
 
-      {/* Document stats */}
-      <div className="pt-3 mt-3 border-t border-border">
-        <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <FileText size={10} />
-            <span>{stats.words} words</span>
+      {/* Document stats - enhanced */}
+      <div className="pt-4 mt-4 border-t border-border/20">
+        <div className="grid grid-cols-2 gap-2 text-[10px]">
+          <div className="text-center p-2 rounded bg-muted/30">
+            <div className="font-semibold text-foreground/70">{stats.words}</div>
+            <div className="text-muted-foreground/50">words</div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Hash size={10} />
-            <span>{stats.characters} chars</span>
+          <div className="text-center p-2 rounded bg-muted/30">
+            <div className="font-semibold text-foreground/70">{Math.ceil(stats.words / 200)}</div>
+            <div className="text-muted-foreground/50">min read</div>
           </div>
         </div>
       </div>

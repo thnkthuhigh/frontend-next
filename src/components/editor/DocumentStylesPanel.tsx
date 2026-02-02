@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BULLET_STYLES } from "./extensions/CustomBulletList";
+import { FontSelector } from "./FontSelector";
+import { ImageUpload } from "./ImageUpload";
 
 interface DocumentStylesPanelProps {
   editor: Editor | null;
@@ -214,6 +216,24 @@ export function DocumentStylesPanel({ editor }: DocumentStylesPanelProps) {
 
   return (
     <div className="space-y-6">
+      {/* Phase 3: Font Selection */}
+      <div>
+        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Type size={12} />
+          Font Family
+        </h3>
+        <FontSelector editor={editor} />
+      </div>
+
+      {/* Phase 4: Image Upload */}
+      <div>
+        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Type size={12} />
+          Upload Image
+        </h3>
+        <ImageUpload editor={editor} />
+      </div>
+
       {/* Document Statistics */}
       <div>
         <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">

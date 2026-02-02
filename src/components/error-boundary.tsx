@@ -63,11 +63,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       // Custom fallback UI
       return this.props.fallback || (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0d0e12] to-[#0a0b0f]">
-          {/* Premium Background Effects */}
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-950">
+          {/* Background Effects - Monochrome */}
           <div className="absolute inset-0 -z-10 pointer-events-none">
-            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-full blur-[120px] animate-float-slow" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
+            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-red-500/5 rounded-full blur-[120px] animate-float-slow" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-zinc-500/5 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
           </div>
 
@@ -75,9 +75,9 @@ export class ErrorBoundary extends Component<Props, State> {
             {/* Error Icon */}
             <div className="flex justify-center">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl blur-xl opacity-50 animate-pulse" />
-                <div className="relative p-6 rounded-2xl glass-card border border-red-500/30">
-                  <AlertTriangle className="w-16 h-16 text-red-400" />
+                <div className="absolute inset-0 bg-red-500 rounded-2xl blur-xl opacity-30 animate-pulse" />
+                <div className="relative p-6 rounded-2xl bg-zinc-900 border border-red-500/30">
+                  <AlertTriangle className="w-16 h-16 text-red-500" />
                 </div>
               </div>
             </div>
@@ -93,10 +93,10 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Error Details (Collapsible for developers) */}
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-red-900/20 to-orange-900/20 border-b border-white/5">
+            <div className="bg-zinc-900/80 backdrop-blur-sm rounded-xl border border-zinc-700/50 overflow-hidden">
+              <div className="p-4 bg-red-500/10 border-b border-zinc-700/50">
                 <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                  <AlertTriangle size={14} />
+                  <AlertTriangle size={14} className="text-red-500" />
                   Error Details
                 </h3>
               </div>
@@ -125,11 +125,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 onClick={this.handleReset}
-                className="group px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300"
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                  boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)'
-                }}
+                className="group px-6 py-3 rounded-xl font-semibold text-zinc-900 bg-amber-500 hover:bg-amber-400 transition-all duration-300 shadow-lg shadow-amber-500/25"
               >
                 <div className="relative flex items-center gap-2">
                   <RefreshCw size={18} className="group-hover:animate-spin" />

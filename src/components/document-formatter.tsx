@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Wand2,
   FileText,
@@ -22,6 +22,11 @@ import {
   Check,
   AlertCircle,
   History,
+  ChevronRight,
+  PanelRightClose,
+  PanelRightOpen,
+  StopCircle,
+  MessageSquarePlus,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -30,12 +35,14 @@ import { Input } from "@/components/ui/input";
 
 import { OutlinePanel } from "@/components/editor/outline-panel";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
+import { AISidePanel } from "@/components/editor/AISidePanel";
 import { DocumentStylesPanel } from "@/components/editor/DocumentStylesPanel";
 import { VersionHistoryPanel } from "@/components/editor/VersionHistoryPanel";
 import { TemplatesPanel } from "@/components/templates/templates-panel";
 import { PageSetup } from "@/components/editor/PageSetup";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TutorialOverlay } from "@/components/tutorial-overlay";
+import { ExportDropdown } from "@/components/editor/ExportDropdown";
 import { useDocumentStore } from "@/store/document-store";
 import { useEditorStore } from "@/store/editor-store";
 import { analyzeContent, analyzeContentStream, formatStructure, downloadBlob, exportPdfV3 } from "@/lib/api";
@@ -73,9 +80,86 @@ export function DocumentFormatter({
   const [error, setError] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("structure");
   const [streamingText, setStreamingText] = useState<string>("");
+  const [streamingDisplay, setStreamingDisplay] = useState<string>(""); // Human-readable display
+  const [displayedText, setDisplayedText] = useState<string>(""); // For typing animation
   const [exportProgress, setExportProgress] = useState<number>(0);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false); // AI Side Panel state
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  
+  // Get editor focus state from store for Focus Mode (fade sidebars when typing)
+  const { isEditorFocused } = useEditorStore();
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLineCountRef = useRef<number>(0);
+
+  // Typing animation effect - gradually reveal text
+  useEffect(() => {
+    if (!streamingDisplay) {
+      setDisplayedText("");
+      return;
+    }
+    
+    // Clear previous interval
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+    
+    // If displayed text is behind, animate to catch up
+    if (displayedText.length < streamingDisplay.length) {
+      const charsToAdd = streamingDisplay.length - displayedText.length;
+      const charsPerTick = Math.max(1, Math.ceil(charsToAdd / 10)); // Faster for longer gaps
+      
+      typingIntervalRef.current = setInterval(() => {
+        setDisplayedText(prev => {
+          const nextLength = Math.min(prev.length + charsPerTick, streamingDisplay.length);
+          const newText = streamingDisplay.substring(0, nextLength);
+          
+          if (nextLength >= streamingDisplay.length) {
+            if (typingIntervalRef.current) {
+              clearInterval(typingIntervalRef.current);
+            }
+          }
+          return newText;
+        });
+      }, 20); // 20ms per tick = smooth animation
+    }
+    
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, [streamingDisplay]);
+
+  // Extract readable text from streaming JSON
+  const extractReadableText = useCallback((jsonText: string): string => {
+    // Try to extract "content" values from partial JSON
+    const contentMatches = jsonText.match(/"content"\s*:\s*"([^"]+)"/g);
+    const textMatches = jsonText.match(/"text"\s*:\s*"([^"]+)"/g);
+    const titleMatch = jsonText.match(/"title"\s*:\s*"([^"]+)"/);
+    
+    let display = "";
+    
+    if (titleMatch) {
+      // Decode escape sequences
+      const title = titleMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      display += `📄 ${title}\n\n`;
+    }
+    
+    const allMatches = [...(contentMatches || []), ...(textMatches || [])];
+    allMatches.forEach(match => {
+      const value = match.match(/"(?:content|text)"\s*:\s*"([^"]+)"/);
+      if (value && value[1] && value[1].length > 2) {
+        // Decode escape sequences like \n, \"
+        const decoded = value[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+        display += decoded + "\n";
+      }
+    });
+    
+    return display || "Đang phân tích cấu trúc văn bản...";
+  }, []);
 
   // Sync viewMode with initialViewMode prop when it changes
   useEffect(() => {
@@ -130,6 +214,50 @@ export function DocumentFormatter({
     margins,
   } = useDocumentStore();
 
+  // Update editor content based on displayed text (with typing animation)
+  useEffect(() => {
+    if (!displayedText) return;
+    
+    const lines = displayedText.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return;
+    
+    const streamContent = lines.map(line => ({
+      type: "paragraph",
+      content: line ? [{ type: "text", text: line }] : []
+    }));
+    
+    // Only update during processing (not after final content is set)
+    if (isProcessing) {
+      setJsonContent({ type: "doc", content: streamContent });
+    }
+    
+    // Only scroll when a new line is added (not every character)
+    if (lines.length > lastLineCountRef.current && isProcessing) {
+      lastLineCountRef.current = lines.length;
+      
+      requestAnimationFrame(() => {
+        const proseMirror = document.querySelector('.ProseMirror');
+        if (proseMirror) {
+          const lastParagraph = proseMirror.querySelector('p:last-of-type');
+          if (lastParagraph) {
+            // Scroll with element in the center of the viewport
+            lastParagraph.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      });
+    }
+  }, [displayedText, isProcessing, setJsonContent]);
+
+  const handleStop = useCallback(() => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setIsProcessing(false);
+      // Content is preserved - the streaming already updated jsonContent
+      toast.addToast(toastSuccess("Đã dừng", "Nội dung đã sinh được giữ lại. Bạn có thể chỉnh sửa tiếp."));
+    }
+  }, [abortController, toast, setIsProcessing]);
+
   const handleAnalyze = useCallback(async () => {
     if (!rawContent.trim()) {
       toast.addToast(toastError("Input Required", "Please enter some content first"));
@@ -139,52 +267,145 @@ export function DocumentFormatter({
     setIsProcessing(true);
     setError(null);
     setStreamingText("");
+    setStreamingDisplay("");
+    setDisplayedText("");
+    lastLineCountRef.current = 0;
+    
+    // Switch to editor view immediately to show streaming in editor
+    setViewMode("editor");
+    
+    // Set initial placeholder content in editor
+    setJsonContent({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "⏳ Đang kết nối với AI..." }]
+        }
+      ]
+    });
+
+    // Create new AbortController
+    const controller = new AbortController();
+    setAbortController(controller);
+    
+    let lastContent: any = null; // Store last valid content for stop functionality
 
     try {
-      // Use Streaming API
-      const result = await analyzeContentStream(rawContent, (chunk) => {
-        setStreamingText((prev) => prev + chunk);
-      });
+      let fullText = "";
 
-      // Process final result (same as legacy fallback for now, but robust)
+      // Use Streaming API with AbortSignal
+      await analyzeContentStream(
+        rawContent,
+        (chunk) => {
+          fullText += chunk;
+          setStreamingText(fullText);
+          
+          // Try to parse partial JSON and update editor in real-time
+          const readable = extractReadableText(fullText);
+          setStreamingDisplay(readable);
+          
+          // Update streaming display - typing animation useEffect will update editor
+          // Don't call setJsonContent directly here to avoid jerky updates
+        },
+        undefined,
+        undefined,
+        controller.signal
+      );
+
+      // Parse final result from accumulated text
+      let result;
+      try {
+        result = JSON.parse(fullText);
+      } catch (e) {
+        console.error("Failed to parse AI response:", fullText);
+        // If stopped early or empty, keep the streaming content
+        if (!fullText.trim() || lastContent) {
+          if (lastContent) {
+            toast.addToast(toastSuccess("Content Generated", "Nội dung đã được tạo (partial)"));
+          }
+          return;
+        }
+        throw new Error("Received invalid data from AI");
+      }
+
+      // Process final result
       setTitle(result.title || "");
       setSubtitle(result.subtitle || "");
       setAuthor(result.author || "");
       setDate(result.date || "");
 
+      // Helper to decode escape sequences
+      const decodeText = (text: string) => {
+        if (!text) return "";
+        return text.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\t/g, '\t');
+      };
+
       // Convert elements to Tiptap JSON format
-      const tiptapContent = result.elements.map((el) => {
+      const tiptapContent = result.elements.map((el: any) => {
+        const content = decodeText(el.content || "");
+        
         if (el.type === "heading1") {
-          return { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: el.content || "" }] };
+          return { type: "heading", attrs: { level: 1 }, content: content ? [{ type: "text", text: content }] : [] };
         } else if (el.type === "heading2") {
-          return { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: el.content || "" }] };
+          return { type: "heading", attrs: { level: 2 }, content: content ? [{ type: "text", text: content }] : [] };
         } else if (el.type === "heading3") {
-          return { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: el.content || "" }] };
+          return { type: "heading", attrs: { level: 3 }, content: content ? [{ type: "text", text: content }] : [] };
         } else if (el.type === "list") {
           const listType = el.style === "numbered" ? "orderedList" : "bulletList";
-          const items = (el.items || []).map((item) => ({
+          const items = (el.items || []).map((item: string) => ({
             type: "listItem",
-            content: [{ type: "paragraph", content: [{ type: "text", text: item }] }]
+            content: [{ type: "paragraph", content: [{ type: "text", text: decodeText(item) }] }]
           }));
           return { type: listType, content: items };
         } else if (el.type === "quote") {
-          return { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: el.content || "" }] }] };
+          return { type: "blockquote", content: [{ type: "paragraph", content: content ? [{ type: "text", text: content }] : [] }] };
         } else if (el.type === "code_block") {
-          return { type: "codeBlock", attrs: { language: el.language || null }, content: [{ type: "text", text: el.content || "" }] };
+          return { type: "codeBlock", attrs: { language: el.language || null }, content: content ? [{ type: "text", text: content }] : [] };
         } else {
-          return { type: "paragraph", content: el.content ? [{ type: "text", text: el.content }] : [] };
+          // For paragraphs with \n, split into multiple paragraphs
+          if (content.includes('\n')) {
+            const paragraphs = content.split('\n').filter((p: string) => p.trim());
+            if (paragraphs.length > 1) {
+              return paragraphs.map((p: string) => ({
+                type: "paragraph",
+                content: [{ type: "text", text: p.trim() }]
+              }));
+            }
+          }
+          return { type: "paragraph", content: content ? [{ type: "text", text: content }] : [] };
         }
-      });
+      }).flat(); // Flatten in case of split paragraphs
 
       setJsonContent({ type: "doc", content: tiptapContent });
       setViewMode("editor");
       toast.addToast(toastSuccess("Analysis Complete", "Document structure has been generated successfully"));
-    } catch (err) {
-      toast.addToast(toastError("Analysis Failed", "Failed to analyze content. Please try again."));
+    } catch (err: any) {
+      // If aborted by user, keep the content that was generated
+      if (err.message === 'CANCELLED' || err.name === 'AbortError') {
+        if (lastContent) {
+          toast.addToast(toastInfo("Đã dừng", "Đã giữ lại nội dung đã sinh"));
+        }
+        return;
+      }
+      toast.addToast(toastError(
+        "Analysis Failed",
+        `Failed to analyze content: ${err.message}`,
+        <button
+          onClick={handleAnalyze}
+          className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-md text-xs font-semibold transition-colors border border-white/10"
+        >
+          Retry
+        </button>
+      ));
       console.error(err);
     } finally {
       setIsProcessing(false);
       setStreamingText("");
+      setStreamingDisplay("");
+      setDisplayedText("");
+      lastLineCountRef.current = 0;
+      setAbortController(null);
     }
   }, [rawContent, setIsProcessing, setTitle, setSubtitle, setAuthor, setDate, setJsonContent, toast]);
 
@@ -231,10 +452,10 @@ export function DocumentFormatter({
         const { buildPdfHtml } = await import('@/lib/pdf-utils');
         const { getStyleConfig } = await import('@/lib/document-styles');
         const styleConfig = getStyleConfig(selectedStyle);
-        
+
         // Build full PDF HTML with styled colors (headingColor, accentColor)
         const fullPdfHtml = buildPdfHtml(effectiveHtml, styleConfig, title, subtitle, author, date);
-        
+
         // Use formatStructure endpoint with full HTML (same as Preview tab)
         const structure = {
           title: title || 'Document',
@@ -327,12 +548,12 @@ export function DocumentFormatter({
                   </Link>
                   <div className="h-6 w-px bg-border" />
                   <div className="flex items-center gap-2">
-                    <FileText size={18} className="text-blue-400" />
+                    <FileText size={18} className="text-amber-500" />
                     <span className="text-sm font-medium text-foreground">New Draft Document</span>
                   </div>
                 </div>
                 {user && (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="w-8 h-8 rounded-full bg-zinc-700 dark:bg-zinc-300 flex items-center justify-center text-zinc-100 dark:text-zinc-800 text-sm font-semibold">
                     {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
@@ -344,8 +565,8 @@ export function DocumentFormatter({
               <div className="max-w-3xl w-full space-y-8">
                 {/* Header */}
                 <div className="text-center space-y-4">
-                  <div className="inline-flex p-4 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-border">
-                    <Wand2 className="w-8 h-8 text-blue-400" />
+                  <div className="inline-flex p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                    <Wand2 className="w-8 h-8 text-amber-500" />
                   </div>
                   <h1 className="text-3xl font-bold text-foreground">Start Your Document</h1>
                   <p className="text-muted-foreground">
@@ -363,7 +584,7 @@ export function DocumentFormatter({
                       className="min-h-[300px] bg-transparent border-none resize-none text-base leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground"
                       autoFocus
                     />
-                    
+
                     <div className="flex items-center justify-between pt-4 border-t border-border">
                       <div className="text-sm text-muted-foreground">
                         {rawContent.length > 0 && `${rawContent.length} characters`}
@@ -371,11 +592,7 @@ export function DocumentFormatter({
                       <button
                         onClick={handleAnalyze}
                         disabled={isProcessing || !rawContent.trim()}
-                        className="px-6 py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                          boxShadow: isProcessing || !rawContent.trim() ? 'none' : '0 8px 32px rgba(59, 130, 246, 0.35)'
-                        }}
+                        className="px-6 py-3 rounded-xl font-semibold text-zinc-900 bg-amber-500 hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
                       >
                         {isProcessing ? (
                           <span className="flex items-center gap-2">
@@ -400,27 +617,7 @@ export function DocumentFormatter({
               </div>
             </div>
 
-            {/* Streaming Terminal */}
-            {isProcessing && streamingText && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                <div className="w-full max-w-3xl bg-card rounded-xl shadow-2xl border border-border overflow-hidden">
-                  <div className="flex items-center px-4 py-2 bg-secondary border-b border-border">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-500" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                      <div className="w-3 h-3 rounded-full bg-green-500" />
-                    </div>
-                    <div className="ml-4 text-xs text-muted-foreground font-mono">AI Agent — Analyzing...</div>
-                  </div>
-                  <div className="p-6 font-mono text-sm text-green-400 h-[400px] overflow-y-auto">
-                    <pre className="whitespace-pre-wrap break-words">
-                      {streamingText}
-                      <span className="animate-pulse">_</span>
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Modal removed - streaming now happens directly in editor */}
           </div>
         </>
       );
@@ -434,7 +631,7 @@ export function DocumentFormatter({
           {/* Top Navigation */}
           <nav className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-blue-400" />
+              <Sparkles className="w-6 h-6 text-amber-500" />
               <span className="font-bold text-foreground hidden sm:inline">AI Doc Formatter</span>
             </div>
             <div className="flex items-center gap-3">
@@ -443,14 +640,11 @@ export function DocumentFormatter({
                 <>
                   <a
                     href="/dashboard"
-                    className="px-4 py-2 text-sm font-semibold text-primary-foreground rounded-lg transition-all"
-                    style={{
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                    }}
+                    className="px-4 py-2 text-sm font-semibold text-zinc-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all shadow-sm"
                   >
                     Dashboard
                   </a>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="w-8 h-8 rounded-full bg-zinc-700 dark:bg-zinc-300 flex items-center justify-center text-zinc-100 dark:text-zinc-800 text-sm font-semibold">
                     {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
                   </div>
                 </>
@@ -465,10 +659,7 @@ export function DocumentFormatter({
                   </a>
                   <a
                     href="/register"
-                    className="px-4 py-2 text-sm font-semibold text-primary-foreground rounded-lg transition-all"
-                    style={{
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                    }}
+                    className="px-4 py-2 text-sm font-semibold text-zinc-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all shadow-sm"
                   >
                     Get Started
                   </a>
@@ -477,12 +668,12 @@ export function DocumentFormatter({
             </div>
           </nav>
 
-          {/* Premium Background Effects */}
+          {/* Premium Background Effects - Monochrome */}
           <div className="absolute inset-0 -z-10 pointer-events-none">
-            {/* Gradient Orbs */}
-            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-[120px] animate-float-slow" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
-            <div className="absolute top-[40%] right-[20%] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[80px] animate-float" style={{ animationDelay: "1.5s" }} />
+            {/* Subtle Ambient Orbs - Zinc tones */}
+            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-zinc-500/5 dark:bg-zinc-400/5 rounded-full blur-[120px] animate-float-slow" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] animate-float-slow" style={{ animationDelay: "3s" }} />
+            <div className="absolute top-[40%] right-[20%] w-[300px] h-[300px] bg-zinc-500/5 rounded-full blur-[80px] animate-float" style={{ animationDelay: "1.5s" }} />
 
             {/* Grid Pattern */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
@@ -497,10 +688,10 @@ export function DocumentFormatter({
               {/* Logo Badge */}
               <div className="inline-flex items-center justify-center">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-xl opacity-50 animate-pulse" />
+                  <div className="absolute inset-0 bg-amber-500 rounded-2xl blur-xl opacity-30 animate-pulse" />
                   <div className="relative p-4 rounded-2xl glass-card">
-                    <Sparkles className="w-10 h-10 text-blue-400 mobile-hidden" />
-                    <Sparkles className="w-8 h-8 text-blue-400 hidden mobile:block" />
+                    <Sparkles className="w-10 h-10 text-amber-500 mobile-hidden" />
+                    <Sparkles className="w-8 h-8 text-amber-500 hidden mobile:block" />
                   </div>
                 </div>
               </div>
@@ -509,7 +700,7 @@ export function DocumentFormatter({
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight mobile-text-4xl">
                 <span className="text-foreground">Create beautiful docs</span>
                 <br />
-                <span className="gradient-text bg-clip-text">at warp speed</span>
+                <span className="text-amber-500">at warp speed</span>
               </h1>
 
               {/* Subtitle */}
@@ -548,7 +739,7 @@ export function DocumentFormatter({
                     <span className="mobile:hidden">Paste Text</span>
                     <span className="hidden mobile:block">Paste</span>
                     {activeTab === "paste" && (
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile-hidden" />
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-amber-500 rounded-full mobile-hidden" />
                     )}
                   </button>
                   <button
@@ -566,7 +757,7 @@ export function DocumentFormatter({
                     <span className="mobile:hidden">Templates</span>
                     <span className="hidden mobile:block">Templates</span>
                     {activeTab === "templates" && (
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile-hidden" />
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-amber-500 rounded-full mobile-hidden" />
                     )}
                   </button>
                 </div>
@@ -588,23 +779,21 @@ export function DocumentFormatter({
                           {rawContent.length > 0 && `${rawContent.length} characters`}
                         </div>
                         <button
-                          onClick={handleAnalyze}
-                          disabled={isProcessing || !rawContent.trim()}
-                          className="group relative px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed mobile-w-full mobile-px-4 mobile-py-2.5"
-                          style={{
-                            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                            boxShadow: isProcessing || !rawContent.trim() ? 'none' : '0 8px 32px rgba(59, 130, 246, 0.35)'
-                          }}
+                          onClick={isProcessing ? handleStop : handleAnalyze}
+                          disabled={!rawContent.trim() && !isProcessing}
+                          className={cn(
+                            "group relative px-8 py-3 rounded-xl font-semibold transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed mobile-w-full mobile-px-4 mobile-py-2.5",
+                            isProcessing 
+                              ? "bg-red-500 hover:bg-red-600 text-white" 
+                              : "bg-amber-500 hover:bg-amber-400 text-zinc-900 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
+                          )}
                           data-action="generate"
                         >
-                          {/* Glow Effect */}
-                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-300" />
-
                           <span className="relative flex items-center gap-2 justify-center">
                             {isProcessing ? (
                               <>
-                                <Loader2 className="animate-spin" size={20} />
-                                <span>Generating...</span>
+                                <LogOut className="rotate-180" size={20} />
+                                <span>STOP</span>
                               </>
                             ) : (
                               <>
@@ -623,27 +812,7 @@ export function DocumentFormatter({
               </div>
             </div>
 
-            {/* Streaming Terminal Effect */}
-            {isProcessing && streamingText && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
-                <div className="w-full max-w-3xl bg-card rounded-xl shadow-2xl border border-border overflow-hidden mobile-w-[95vw] mobile-max-w-[95vw]">
-                  <div className="flex items-center px-4 py-2 bg-secondary border-b border-border mobile-px-3 mobile-py-1.5">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-500" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                      <div className="w-3 h-3 rounded-full bg-green-500" />
-                    </div>
-                    <div className="ml-4 text-xs text-muted-foreground font-mono mobile:text-[10px]">AI Agent — Analyzing Structure...</div>
-                  </div>
-                  <div className="p-6 font-mono text-sm text-green-400 h-[400px] overflow-y-auto custom-scrollbar mobile-p-3 mobile-h-[300px]">
-                    <pre className="whitespace-pre-wrap break-words">
-                      {streamingText}
-                      <span className="animate-pulse">_</span>
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Modal removed - streaming now happens directly in editor */}
 
 
             {/* Footer Hint */}
@@ -661,254 +830,161 @@ export function DocumentFormatter({
     <>
       <TutorialOverlay />
       <div className="h-screen flex flex-col overflow-hidden bg-background">
-        {/* Premium Top Bar */}
-        <header className="h-16 shrink-0 z-50 relative mobile:h-14">
-          {/* Glassmorphism Header */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-          <div className="relative h-full flex items-center justify-between px-5 mobile:px-3">
-            {/* Left Section */}
-            <div className="flex items-center gap-4 mobile:gap-2">
-              {/* Back button - to dashboard if documentId exists, else to input mode */}
+        {/* Minimal Clean Header */}
+        <header className="h-12 shrink-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm mobile:h-14">
+          <div className="h-full flex items-center justify-between px-4 mobile:px-3">
+            {/* Left Section - Breadcrumb Style */}
+            <div className="flex items-center gap-3 mobile:gap-2">
+              {/* Back button */}
               {documentId ? (
                 <Link
                   href="/dashboard"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 mobile:px-2 mobile:py-1.5"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <ArrowLeft size={18} className="mobile:w-4 mobile:h-4" />
-                  <span className="text-sm font-medium mobile:hidden">Dashboard</span>
+                  <ArrowLeft size={16} />
+                  <span className="text-sm mobile:hidden">Dashboard</span>
                 </Link>
               ) : (
                 <button
                   onClick={() => setViewMode("input")}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 mobile:px-2 mobile:py-1.5"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <ChevronLeft size={18} className="mobile:w-4 mobile:h-4" />
-                  <span className="text-sm font-medium mobile:hidden">Back</span>
+                  <ChevronLeft size={16} />
+                  <span className="text-sm mobile:hidden">Back</span>
                 </button>
               )}
 
-              <div className="h-6 w-px bg-white/10 mobile:hidden" />
+              {/* Breadcrumb separator */}
+              <ChevronRight size={14} className="text-muted-foreground/50 mobile:hidden" />
 
-              {/* Document Title */}
-              <div className="flex items-center gap-3 mobile:gap-2">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 mobile:p-1.5">
-                  <FileText size={18} className="text-blue-400 mobile:w-4 mobile:h-4" />
-                </div>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="h-9 w-72 bg-muted border-border hover:border-border-hover focus:border-primary focus:bg-muted transition-all font-medium text-foreground placeholder:text-muted-foreground rounded-lg mobile:w-40 mobile:h-8 mobile:text-sm"
-                  placeholder="Untitled Document"
-                />
-              </div>
-              
-              {/* Save Status - Show when documentId exists */}
+              {/* Document Title - Inline editable */}
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="h-8 min-w-[180px] w-auto bg-transparent border-none hover:bg-muted/50 focus:bg-muted focus:ring-0 transition-all font-medium text-sm text-foreground placeholder:text-muted-foreground rounded px-2"
+                placeholder="Untitled Document"
+              />
+
+              {/* Save Status - Minimal */}
               {documentId && saveStatus && (
-                <>
-                  <div className="h-6 w-px bg-white/10 mobile:hidden" />
-                  <div className="flex items-center gap-2 mobile:hidden">
-                    {saveStatus.saveError ? (
-                      <div className="flex items-center gap-2 text-red-400">
-                        <AlertCircle size={14} />
-                        <span className="text-xs">Error</span>
-                      </div>
-                    ) : saveStatus.isSaving ? (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 size={14} className="animate-spin" />
-                        <span className="text-xs">Saving...</span>
-                      </div>
-                    ) : saveStatus.lastSaved ? (
-                      <div className="flex items-center gap-2 text-green-500">
-                        <Cloud size={14} />
-                        <Check size={12} />
-                        <span className="text-xs">Saved</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <CloudOff size={14} />
-                        <span className="text-xs">Not saved</span>
-                      </div>
-                    )}
-                  </div>
-                </>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mobile:hidden">
+                  {saveStatus.isSaving ? (
+                    <>
+                      <Loader2 size={10} className="animate-spin" />
+                      <span>Saving</span>
+                    </>
+                  ) : saveStatus.saveError ? (
+                    <span className="text-red-400 flex items-center gap-1">
+                      <AlertCircle size={10} />
+                      Error
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <Check size={10} />
+                      Saved
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Right Section */}
-            <div className="flex items-center gap-3 mobile:gap-1.5">
-              {/* Format Toggle */}
-              <div className="flex items-center p-1 rounded-xl bg-muted border border-border mobile:hidden">
-                <button
-                  onClick={() => setOutputFormat("docx")}
-                  className={cn(
-                    "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
-                    outputFormat === "docx"
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-primary-foreground shadow-lg shadow-blue-500/25"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  DOCX
-                </button>
-                <button
-                  onClick={() => setOutputFormat("pdf")}
-                  className={cn(
-                    "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
-                    outputFormat === "pdf"
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-primary-foreground shadow-lg shadow-blue-500/25"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  PDF
-                </button>
-              </div>
+            {/* Center - Empty for respiratory space */}
+            <div className="flex-1" />
 
-              <div className="h-6 w-px bg-border mobile:hidden" />
-
-              {/* Theme Toggle */}
-              <div data-action="theme-toggle" className="mobile:hidden">
-                <ThemeToggle />
-              </div>
-
-              {/* Markdown Export */}
+            {/* Right Section - Actions */}
+            <div className="flex items-center gap-2">
+              {/* AI Assistant Toggle Button - Subtle when inactive, visible when active */}
               <button
-                onClick={handleExportMarkdown}
-                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all border border-transparent hover:border-border mobile:p-1.5"
-                title="Export as Markdown"
+                onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                  aiPanelOpen
+                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700"
+                    : "bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600"
+                )}
+                title={aiPanelOpen ? "Close AI Assistant" : "Open AI Assistant"}
               >
-                <FileCode size={18} className="mobile:w-4 mobile:h-4" />
+                <Sparkles size={14} className={cn(aiPanelOpen ? "text-amber-500" : "text-amber-500")} />
+                <span>AI Assistant</span>
               </button>
 
-              {/* Main Export Button with Progress */}
-              <div className="relative">
-                <button
-                  onClick={handleExport}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-50 mobile:px-3 mobile:py-2 mobile:text-sm relative overflow-hidden"
-                  style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                    boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)'
-                  }}
-                  data-action="export"
-                >
-                  {/* Progress bar background */}
-                  {isExporting && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/30 to-purple-600/30"
-                      style={{ width: `${exportProgress}%` }} />
-                  )}
-
-                  <div className="relative flex items-center gap-2">
-                    {isExporting ? (
-                      <>
-                        <Loader2 className="animate-spin mobile:w-4 mobile:h-4" size={18} />
-                        <span className="mobile:hidden">
-                          {exportProgress < 100 ? `Exporting ${exportProgress}%` : 'Finalizing...'}
-                        </span>
-                      </>
-                    ) : isProcessing ? (
-                      <>
-                        <Loader2 className="animate-spin mobile:w-4 mobile:h-4" size={18} />
-                        <span className="mobile:hidden">Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download size={18} className="mobile:w-4 mobile:h-4" />
-                        <span className="mobile:hidden">Export</span>
-                      </>
-                    )}
-                  </div>
-                </button>
-
-                {/* Progress indicator tooltip */}
-                {isExporting && (
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap z-50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-400 to-blue-400 rounded-full transition-all duration-300"
-                          style={{ width: `${exportProgress}%` }}
-                        />
-                      </div>
-                      <span>{exportProgress}%</span>
-                    </div>
-                  </div>
+              {/* Theme Toggle - Minimal */}
+              <ThemeToggle />
+              
+              {/* Sidebar Toggle - Hover only icon */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={cn(
+                  "p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors mobile:hidden",
+                  !sidebarOpen && "text-foreground"
                 )}
-              </div>
+                title={sidebarOpen ? "Close Sidebar" : "Open Sidebar"}
+              >
+                {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              </button>
+
+              {/* Export Button - Primary Action */}
+              <ExportDropdown
+                onExportPdf={() => { setOutputFormat("pdf"); handleExport(); }}
+                onExportDocx={() => { setOutputFormat("docx"); handleExport(); }}
+                onExportMarkdown={handleExportMarkdown}
+                isExporting={isExporting}
+                isProcessing={isProcessing}
+                exportProgress={exportProgress}
+              />
             </div>
           </div>
         </header>
 
         {/* Main Workspace */}
         <div className="flex-1 flex overflow-hidden mobile:flex-col">
-          {/* Premium Left Sidebar */}
-          <div className="w-72 flex flex-col overflow-hidden relative mobile:w-full mobile:h-12 mobile:flex-row mobile:border-b mobile:border-white/10 mobile-sidebar-hidden">
-            {/* Sidebar Background */}
-            <div className="absolute inset-0 bg-card mobile:bg-gradient-to-r" />
-            <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-border via-border/50 to-transparent mobile:hidden" />
+          {/* Minimalist Left Sidebar - Navigation Rail Style with Focus Mode */}
+          <div className={cn(
+            "flex flex-col overflow-hidden relative mobile:w-full mobile:h-12 mobile:flex-row mobile:border-b mobile:border-border mobile-sidebar-hidden transition-all duration-300 ease-in-out bg-transparent group/sidebar",
+            sidebarOpen ? "w-64" : "w-0 opacity-0",
+            // Focus Mode: Fade sidebar when editor is focused, show on hover
+            sidebarOpen && isEditorFocused ? "opacity-50 hover:opacity-100" : "opacity-100"
+          )}>
+            {/* Minimal border only */}
+            <div className="absolute inset-y-0 right-0 w-px bg-border mobile:hidden" />
 
-            {/* Sidebar Tab Headers */}
-            <div className="relative flex shrink-0 mobile:w-full">
-              <div className="absolute inset-x-0 bottom-0 h-px bg-border mobile:hidden" />
+            {/* Sidebar Tab Headers - 3 main tabs */}
+            <div className="relative flex shrink-0 mobile:w-full border-b border-border bg-muted/30">
               <button
                 onClick={() => setSidebarTab("structure")}
                 className={cn(
-                  "flex-1 px-3 py-3.5 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 relative mobile:py-2 mobile:px-2",
+                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
                   sidebarTab === "structure"
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-foreground bg-background border-b-2 border-amber-500"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                <LayoutList size={13} className="mobile:w-3 mobile:h-3" />
-                <span className="mobile:text-[10px]">Structure</span>
-                {sidebarTab === "structure" && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
-                )}
-              </button>
-              <button
-                onClick={() => setSidebarTab("styles")}
-                className={cn(
-                  "flex-1 px-3 py-3.5 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 relative mobile:py-2 mobile:px-2",
-                  sidebarTab === "styles"
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Paintbrush size={13} className="mobile:w-3 mobile:h-3" />
-                <span className="mobile:text-[10px]">Styles</span>
-                {sidebarTab === "styles" && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
-                )}
+                <LayoutList size={14} />
+                <span>Outline</span>
               </button>
               <button
                 onClick={() => setSidebarTab("theme")}
                 className={cn(
-                  "flex-1 px-3 py-3.5 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 relative mobile:py-2 mobile:px-2",
+                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
                   sidebarTab === "theme"
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-foreground bg-background border-b-2 border-amber-500"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                <Palette size={13} className="mobile:w-3 mobile:h-3" />
-                <span className="mobile:text-[10px]">Theme</span>
-                {sidebarTab === "theme" && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
-                )}
+                <Palette size={14} />
+                <span>Style</span>
               </button>
               <button
                 onClick={() => setSidebarTab("history")}
                 className={cn(
-                  "flex-1 px-3 py-3.5 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 relative mobile:py-2 mobile:px-2",
+                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
                   sidebarTab === "history"
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-foreground bg-background border-b-2 border-amber-500"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                <History size={13} className="mobile:w-3 mobile:h-3" />
-                <span className="mobile:text-[10px]">History</span>
-                {sidebarTab === "history" && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mobile:hidden" />
-                )}
+                <History size={14} />
+                <span>History</span>
               </button>
             </div>
 
@@ -921,31 +997,28 @@ export function DocumentFormatter({
                     const element = document.querySelector(`[data-block-id="${blockId}"]`);
                     if (element) {
                       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      element.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2', 'ring-offset-transparent');
+                      element.classList.add('ring-2', 'ring-amber-500/50', 'ring-offset-2', 'ring-offset-transparent');
                       setTimeout(() => {
-                        element.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2', 'ring-offset-transparent');
+                        element.classList.remove('ring-2', 'ring-amber-500/50', 'ring-offset-2', 'ring-offset-transparent');
                       }, 1500);
                     }
                   }}
                 />
-              ) : sidebarTab === "styles" ? (
-                /* Document Styles Panel - Bulk Formatting */
-                <DocumentStylesPanel editor={editor} />
               ) : sidebarTab === "history" ? (
                 /* Version History Panel */
                 <VersionHistoryPanel
-                  documentId={documentId || null}
+                  documentId={(documentId || null) as string | null}
                   currentContent={jsonContent}
                   currentTitle={title}
                   onVersionRestored={() => {
-                    // Reload document content after restore
+                    // Reload to fetch restored content
                     window.location.reload();
                   }}
                 />
               ) : (
-                /* Theme & Metadata Panel */
+                /* Theme, Styles & Metadata Panel - Combined */
                 <div className="space-y-6">
-                  {/* Theme Selection */}
+                  {/* Document Style Selection */}
                   <div>
                     <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
                       Document Style
@@ -958,22 +1031,21 @@ export function DocumentFormatter({
                           className={cn(
                             "p-3 rounded-xl text-left transition-all duration-200 group",
                             selectedStyle === style.id
-                              ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 shadow-lg shadow-blue-500/10"
-                              : "bg-muted border border-border hover:border-primary/30 hover:bg-muted/80"
+                              ? "bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/10"
+                              : "bg-muted/50 border border-border hover:border-amber-500/30 hover:bg-muted"
                           )}
                         >
-                          <div className={cn("w-full h-1.5 rounded-full mb-2", style.color)} />
+                          <div className={cn("w-full h-1 rounded-full mb-2", style.color)} />
                           <span className={cn(
                             "text-xs font-semibold block",
-                            selectedStyle === style.id ? "text-foreground" : "text-foreground/70 group-hover:text-foreground"
+                            selectedStyle === style.id ? "text-amber-600 dark:text-amber-400" : "text-foreground/70 group-hover:text-foreground"
                           )}>{style.name}</span>
-                          <span className="text-[10px] text-muted-foreground leading-tight">{style.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Metadata */}
+                  {/* Document Metadata */}
                   <div>
                     <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
                       Document Info
@@ -984,7 +1056,7 @@ export function DocumentFormatter({
                         <Input
                           value={subtitle}
                           onChange={(e) => setSubtitle(e.target.value)}
-                          className="h-8 text-xs bg-muted border-border hover:border-primary/30 focus:border-primary rounded-lg text-foreground placeholder:text-muted-foreground"
+                          className="h-8 text-xs bg-background border-border hover:border-amber-500/30 focus:border-amber-500 rounded-lg text-foreground placeholder:text-muted-foreground"
                           placeholder="Optional subtitle..."
                         />
                       </div>
@@ -993,7 +1065,7 @@ export function DocumentFormatter({
                         <Input
                           value={author}
                           onChange={(e) => setAuthor(e.target.value)}
-                          className="h-8 text-xs bg-muted border-border hover:border-primary/30 focus:border-primary rounded-lg text-foreground placeholder:text-muted-foreground"
+                          className="h-8 text-xs bg-background border-border hover:border-amber-500/30 focus:border-amber-500 rounded-lg text-foreground placeholder:text-muted-foreground"
                           placeholder="Author name..."
                         />
                       </div>
@@ -1002,22 +1074,25 @@ export function DocumentFormatter({
                         <Input
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
-                          className="h-8 text-xs bg-muted border-border hover:border-primary/30 focus:border-primary rounded-lg text-foreground placeholder:text-muted-foreground"
+                          className="h-8 text-xs bg-background border-border hover:border-amber-500/30 focus:border-amber-500 rounded-lg text-foreground placeholder:text-muted-foreground"
                           placeholder="Publication date..."
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Page Setup - Margins */}
+                  {/* Page Setup */}
                   <PageSetup />
                 </div>
               )}
             </div>
           </div>
 
-          {/* Center Canvas - Premium Editor Area */}
-          <div className="flex-1 relative overflow-hidden flex flex-col mobile:w-full bg-background-secondary">
+          {/* Center Canvas - Premium Editor Area with smooth center transition */}
+          <div className={cn(
+            "flex-1 relative overflow-hidden flex flex-col mobile:w-full transition-all duration-300 ease-in-out",
+            !sidebarOpen && "mx-auto max-w-5xl" // Center when sidebar closed
+          )}>
             {/* Subtle Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
 
@@ -1047,9 +1122,57 @@ export function DocumentFormatter({
 
             {/* WYSIWYG Editor - Always visible */}
             <div className="relative flex-1 overflow-hidden mobile:p-2">
+              {/* Full overlay when processing - blocks all interactions */}
+              {isProcessing && (
+                <>
+                  {/* Overlay to block clicks */}
+                  <div className="absolute inset-0 z-20 bg-transparent" />
+                  
+                  {/* Top status bar */}
+                  <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-3 flex items-center justify-between shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <div className="absolute inset-0 h-5 w-5 animate-ping opacity-30 rounded-full bg-white" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">AI đang tạo nội dung...</span>
+                        <p className="text-xs text-white/70">Nội dung sẽ hiển thị bên dưới khi được sinh ra</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleStop}
+                      className="px-4 py-2 text-sm font-semibold bg-white text-purple-600 hover:bg-white/90 rounded-lg transition-colors flex items-center gap-2 shadow-md"
+                    >
+                      <StopCircle className="h-4 w-4" />
+                      Dừng & Giữ nội dung
+                    </button>
+                  </div>
+                  
+                  {/* Progress indicator at bottom */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+                    <div className="bg-card/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-border flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '0ms'}} />
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '150ms'}} />
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '300ms'}} />
+                      </div>
+                      <span className="text-xs text-muted-foreground">Đang sinh nội dung với Vertex AI</span>
+                    </div>
+                  </div>
+                </>
+              )}
               <DocumentEditor />
             </div>
           </div>
+
+          {/* Right AI Side Panel with Focus Mode */}
+          <AISidePanel
+            editor={editor}
+            isOpen={aiPanelOpen}
+            onClose={() => setAiPanelOpen(false)}
+            isEditorFocused={isEditorFocused}
+          />
         </div>
       </div>
     </>

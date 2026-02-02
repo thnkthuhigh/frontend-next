@@ -1,6 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
+export async function getAuthHeaders(): Promise<Record<string, string>> {
   if (typeof window === "undefined") return {};
   try {
     const { getCurrentSession } = await import("@/lib/supabase/client");
@@ -92,52 +92,7 @@ export async function analyzeTiptapContent(content: string): Promise<TiptapAnaly
   return response.json();
 }
 
-export async function analyzeContentStream(
-  content: string,
-  onChunk: (chunk: string) => void
-): Promise<AnalyzeResponse> {
-  const response = await fetch(`${API_URL}/analyze-stream`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(await getAuthHeaders()),
-    },
-    body: JSON.stringify({ content }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to analyze content stream");
-  }
-
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
-  let fullText = "";
-
-  if (reader) {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      const chunk = decoder.decode(value, { stream: true });
-      fullText += chunk;
-      onChunk(chunk);
-    }
-  }
-
-  try {
-    // Try to parse the full text as JSON at the end
-    // Clean up markdown code blocks if present (just in case backend missed it)
-    let cleanText = fullText.trim();
-    if (cleanText.startsWith("```json")) cleanText = cleanText.slice(7);
-    if (cleanText.startsWith("```")) cleanText = cleanText.slice(3);
-    if (cleanText.endsWith("```")) cleanText = cleanText.slice(0, -3);
-    
-    return JSON.parse(cleanText.trim());
-  } catch (e) {
-    console.error("Failed to parse final JSON from stream", e);
-    throw new Error("AI response was not valid JSON");
-  }
-}
+// Note: Enhanced analyzeContentStream with AbortSignal support is defined below (line ~364)
 
 export async function formatDocument(
   content: string,
@@ -310,4 +265,104 @@ export async function aiFixGrammar(text: string, context?: AIContext): Promise<s
   if (!response.ok) throw new Error("Failed to fix grammar");
   const data: AITextResponse = await response.json();
   return data.result;
+}
+
+// ============================================
+// Custom AI Prompt
+// ============================================
+
+export interface CustomPromptRequest {
+  text: string;
+  prompt: string;
+  context?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface CustomPromptResponse {
+  success: boolean;
+  result: string;
+  tokens_used?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  warning?: string;
+}
+
+export async function customPrompt(request: CustomPromptRequest): Promise<CustomPromptResponse> {
+  const response = await fetch(`${API_URL}/ai/custom-prompt`, {
+    method: 'POST',
+    headers: {
+      "Content-Type": "application/json",
+      ...(await getAuthHeaders())
+    },
+    body: JSON.stringify({
+      text: request.text,
+      prompt: request.prompt,
+      context: request.context
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Custom prompt failed' }));
+    throw new Error(error.detail || 'Custom prompt failed');
+  }
+
+  return response.json();
+}
+
+// ============================================
+// Stream Manager Integration
+// ============================================
+
+export async function analyzeContentStream(
+  content: string,
+  onChunk: (chunk: any) => void,
+  onComplete?: () => void,
+  onError?: (error: Error) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/analyze-stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getAuthHeaders())
+      },
+      body: JSON.stringify({ content }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      // Decode chunk and pass directly (raw JSON text streaming)
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) {
+        onChunk(chunk);
+      }
+    }
+
+    onComplete?.();
+
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.log('Stream cancelled by user');
+      throw new Error('CANCELLED');
+    }
+    onError?.(error);
+    throw error;
+  }
 }

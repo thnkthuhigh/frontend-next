@@ -26,7 +26,7 @@ export interface StyleConfig {
 }
 
 export const STYLE_OPTIONS: StyleOption[] = [
-    { id: "professional", name: "Professional", desc: "Business reports", color: "bg-blue-500" },
+    { id: "professional", name: "Professional", desc: "Business reports", color: "bg-zinc-900" },
     { id: "academic", name: "Academic", desc: "Thesis, papers", color: "bg-slate-900" },
     { id: "modern", name: "Modern", desc: "Creative, colorful", color: "bg-purple-500" },
     { id: "minimal", name: "Minimal", desc: "Clean, simple", color: "bg-gray-400" },
@@ -41,15 +41,15 @@ export const STYLE_OPTIONS: StyleOption[] = [
 export const STYLE_CONFIGS: Record<DocumentStyleId, StyleConfig> = {
     professional: {
         fontFamily: "'Times New Roman', serif",
-        headingColor: "#0f172a",
-        accentColor: "#1e3a8a",
+        headingColor: "#18181b",
+        accentColor: "#18181b",
         fontSize: 12,
         lineHeight: 1.6,
     },
     academic: {
         fontFamily: "'Times New Roman', serif",
-        headingColor: "#000000",
-        accentColor: "#000000",
+        headingColor: "#18181b",
+        accentColor: "#18181b",
         fontSize: 12,
         lineHeight: 2.0,
     },
@@ -62,8 +62,8 @@ export const STYLE_CONFIGS: Record<DocumentStyleId, StyleConfig> = {
     },
     minimal: {
         fontFamily: "Calibri, sans-serif",
-        headingColor: "#171717",
-        accentColor: "#737373",
+        headingColor: "#18181b",
+        accentColor: "#52525b",
         fontSize: 11,
         lineHeight: 1.5,
     },

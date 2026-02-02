@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils"
 
 interface DropdownMenuProps {
     children: React.ReactNode
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }
 
 const DropdownMenuContext = React.createContext<{
@@ -13,8 +15,19 @@ const DropdownMenuContext = React.createContext<{
     setOpen: () => { },
 })
 
-export const DropdownMenu = ({ children }: DropdownMenuProps) => {
-    const [open, setOpen] = React.useState(false)
+export const DropdownMenu = ({ children, open: controlledOpen, onOpenChange }: DropdownMenuProps) => {
+    const [internalOpen, setInternalOpen] = React.useState(false)
+    
+    // Use controlled state if provided, otherwise use internal state
+    const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+    const setOpen = React.useCallback((newOpen: boolean) => {
+        if (onOpenChange) {
+            onOpenChange(newOpen)
+        } else {
+            setInternalOpen(newOpen)
+        }
+    }, [onOpenChange])
+    
     const ref = React.useRef<HTMLDivElement>(null)
 
     React.useEffect(() => {
@@ -25,7 +38,7 @@ export const DropdownMenu = ({ children }: DropdownMenuProps) => {
         }
         document.addEventListener("mousedown", handleClickOutside)
         return () => document.removeEventListener("mousedown", handleClickOutside)
-    }, [])
+    }, [setOpen])
 
     return (
         <DropdownMenuContext.Provider value={{ open, setOpen }}>

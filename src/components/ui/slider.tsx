@@ -28,9 +28,9 @@ export function Slider({
 
   return (
     <div className={cn("relative w-full", className)}>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-700/50 dark:bg-zinc-600/30">
         <div
-          className="absolute h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+          className="absolute h-full bg-amber-500 rounded-full"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -44,7 +44,7 @@ export function Slider({
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       />
       <div
-        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-lg shadow-black/25 border-2 border-blue-500 pointer-events-none transition-all"
+        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-lg shadow-black/25 border-2 border-amber-500 pointer-events-none transition-all"
         style={{ left: `calc(${percentage}% - 8px)` }}
       />
     </div>

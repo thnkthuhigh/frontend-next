@@ -7,59 +7,31 @@ import {
     Italic,
     Underline,
     Strikethrough,
-    Sparkles,
-    ChevronDown,
-    Loader2,
-    Wand2,
-    MessageSquare,
-    Scissors,
-    BookOpen,
+    Palette,
+    Heading1,
+    Heading2,
 } from "lucide-react";
+
+// Color palette for text - carefully curated monochrome + accent colors
+const TEXT_COLORS = [
+    { name: "Default", color: null, preview: "bg-zinc-800 dark:bg-zinc-200" },
+    { name: "Amber", color: "#f59e0b", preview: "bg-amber-500" },
+    { name: "Red", color: "#ef4444", preview: "bg-red-500" },
+    { name: "Green", color: "#22c55e", preview: "bg-green-500" },
+    { name: "Blue", color: "#3b82f6", preview: "bg-blue-500" },
+    { name: "Purple", color: "#a855f7", preview: "bg-purple-500" },
+    { name: "Pink", color: "#ec4899", preview: "bg-pink-500" },
+    { name: "Gray", color: "#6b7280", preview: "bg-gray-500" },
+];
 import { cn } from "@/lib/utils";
-import { aiRewrite, aiExpand, aiFixGrammar } from "@/lib/api";
 
 interface FloatingToolbarProps {
     editor: Editor | null;
 }
 
-interface AIAction {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    action: (text: string) => Promise<string>;
-}
-
-const AI_ACTIONS: AIAction[] = [
-    {
-        id: "rewrite",
-        label: "Rewrite",
-        icon: <Wand2 size={14} />,
-        action: (text) => aiRewrite(text, "professional"),
-    },
-    {
-        id: "shorter",
-        label: "Make Shorter",
-        icon: <Scissors size={14} />,
-        action: (text) => aiRewrite(text, "concise"),
-    },
-    {
-        id: "expand",
-        label: "Expand",
-        icon: <BookOpen size={14} />,
-        action: (text) => aiExpand(text),
-    },
-    {
-        id: "grammar",
-        label: "Fix Grammar",
-        icon: <MessageSquare size={14} />,
-        action: (text) => aiFixGrammar(text),
-    },
-];
-
 export function FloatingToolbar({ editor }: FloatingToolbarProps) {
-    const [showAIMenu, setShowAIMenu] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [processingAction, setProcessingAction] = useState<string | null>(null);
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const [showHeadingMenu, setShowHeadingMenu] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const toolbarRef = useRef<HTMLDivElement>(null);
@@ -75,7 +47,6 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
 
             if (!hasSelection || isInCodeBlock) {
                 setIsVisible(false);
-                setShowAIMenu(false);
                 return;
             }
 
@@ -113,7 +84,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
             setTimeout(() => {
                 if (!toolbarRef.current?.contains(document.activeElement)) {
                     setIsVisible(false);
-                    setShowAIMenu(false);
+                    setShowColorPicker(false);
+                    setShowHeadingMenu(false);
                 }
             }, 150);
         });
@@ -123,37 +95,6 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
         };
     }, [editor]);
 
-    const handleAIAction = useCallback(async (action: AIAction) => {
-        if (!editor) return;
-
-        const { from, to } = editor.state.selection;
-        const selectedText = editor.state.doc.textBetween(from, to, " ");
-
-        if (!selectedText.trim()) return;
-
-        setIsProcessing(true);
-        setProcessingAction(action.id);
-        setShowAIMenu(false);
-
-        try {
-            const result = await action.action(selectedText);
-
-            // Replace selected text with AI result
-            editor
-                .chain()
-                .focus()
-                .deleteSelection()
-                .insertContent(result)
-                .run();
-        } catch (error) {
-            console.error("AI action failed:", error);
-        } finally {
-            setIsProcessing(false);
-            setProcessingAction(null);
-            setIsVisible(false);
-        }
-    }, [editor]);
-
     // Prevent toolbar clicks from losing selection
     const handleToolbarMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -161,7 +102,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
 
     if (!editor || !isVisible) return null;
 
-    const ToolbarButton = ({
+    // Floating toolbar button - Light mode with dark mode support
+    const ToolbarBtn = ({
         onClick,
         isActive,
         disabled,
@@ -180,11 +122,11 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
             disabled={disabled}
             title={title}
             className={cn(
-                "p-2 rounded-lg transition-all duration-150",
+                "p-2 rounded-full transition-all duration-200",
                 isActive
-                    ? "bg-primary/20 text-foreground"
-                    : "text-foreground/70 hover:text-foreground hover:bg-muted",
-                disabled && "opacity-40 cursor-not-allowed"
+                    ? "bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700",
+                disabled && "opacity-30 cursor-not-allowed"
             )}
         >
             {children}
@@ -195,105 +137,152 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
         <div
             ref={toolbarRef}
             onMouseDown={handleToolbarMouseDown}
-            className="fixed z-40 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="fixed z-[9999] flex items-center gap-1 px-3 py-2 rounded-full bg-white dark:bg-zinc-800 backdrop-blur-xl shadow-xl border border-zinc-200 dark:border-zinc-700 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200"
             style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05)',
             }}
         >
             {/* Formatting buttons */}
-            <ToolbarButton
+            <ToolbarBtn
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 isActive={editor.isActive("bold")}
-                title="Bold (Ctrl+B)"
+                title="Bold"
             >
-                <Bold size={16} />
-            </ToolbarButton>
+                <Bold size={15} />
+            </ToolbarBtn>
 
-            <ToolbarButton
+            <ToolbarBtn
                 onClick={() => editor.chain().focus().toggleItalic().run()}
                 isActive={editor.isActive("italic")}
-                title="Italic (Ctrl+I)"
+                title="Italic"
             >
-                <Italic size={16} />
-            </ToolbarButton>
+                <Italic size={15} />
+            </ToolbarBtn>
 
-            <ToolbarButton
+            <ToolbarBtn
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
                 isActive={editor.isActive("underline")}
-                title="Underline (Ctrl+U)"
+                title="Underline"
             >
-                <Underline size={16} />
-            </ToolbarButton>
+                <Underline size={15} />
+            </ToolbarBtn>
 
-            <ToolbarButton
+            <ToolbarBtn
                 onClick={() => editor.chain().focus().toggleStrike().run()}
                 isActive={editor.isActive("strike")}
                 title="Strikethrough"
             >
-                <Strikethrough size={16} />
-            </ToolbarButton>
+                <Strikethrough size={15} />
+            </ToolbarBtn>
 
-            {/* Divider */}
-            <div className="w-px h-5 bg-white/20 mx-1" />
+            {/* Divider - dot style */}
+            <div className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600 mx-1" />
 
-            {/* AI Magic Button */}
+            {/* Color Picker */}
             <div className="relative">
-                <button
-                    onMouseDown={handleToolbarMouseDown}
-                    onClick={() => setShowAIMenu(!showAIMenu)}
-                    disabled={isProcessing}
-                    className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-150",
-                        showAIMenu
-                            ? "bg-gradient-to-r from-violet-500/30 to-purple-500/30 text-purple-300"
-                            : "text-purple-300/80 hover:text-purple-300 hover:bg-purple-500/20",
-                        isProcessing && "opacity-60"
-                    )}
-                    title="AI Edit"
+                <ToolbarBtn
+                    onClick={() => {
+                        setShowColorPicker(!showColorPicker);
+                        setShowHeadingMenu(false);
+                    }}
+                    title="Text Color"
                 >
-                    {isProcessing ? (
-                        <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                        <Sparkles size={16} />
-                    )}
-                    <span className="text-xs font-medium">AI</span>
-                    <ChevronDown
-                        size={12}
-                        className={cn(
-                            "transition-transform duration-200",
-                            showAIMenu && "rotate-180"
-                        )}
-                    />
-                </button>
+                    <Palette size={15} />
+                </ToolbarBtn>
 
-                {/* AI Actions Dropdown */}
-                {showAIMenu && (
+                {showColorPicker && (
                     <div
-                        className="absolute top-full left-0 mt-2 w-40 py-1 rounded-xl bg-[#1a1d24]/95 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/30 z-50"
+                        className="absolute top-full left-1/2 -translate-x-1/2 mt-3 p-3 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl z-[9999]"
+                        onMouseDown={handleToolbarMouseDown}
                     >
-                        {AI_ACTIONS.map((action) => (
-                            <button
-                                key={action.id}
-                                onMouseDown={handleToolbarMouseDown}
-                                onClick={() => handleAIAction(action)}
-                                disabled={isProcessing}
-                                className={cn(
-                                    "w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                                    processingAction === action.id
-                                        ? "bg-purple-500/20 text-purple-300"
-                                        : "text-foreground/70 hover:text-foreground hover:bg-muted"
-                                )}
-                            >
-                                {processingAction === action.id ? (
-                                    <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                    action.icon
-                                )}
-                                <span>{action.label}</span>
-                            </button>
-                        ))}
+                        <div className="flex gap-2">
+                            {TEXT_COLORS.map((item) => (
+                                <button
+                                    key={item.name}
+                                    onClick={() => {
+                                        if (item.color) {
+                                            editor.chain().focus().setColor(item.color).run();
+                                        } else {
+                                            editor.chain().focus().unsetColor().run();
+                                        }
+                                        setShowColorPicker(false);
+                                    }}
+                                    title={item.name}
+                                    className={cn(
+                                        "w-6 h-6 rounded-full transition-all duration-200 hover:scale-125 hover:ring-2 hover:ring-zinc-400 dark:hover:ring-zinc-500",
+                                        item.preview
+                                    )}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Heading Quick Access */}
+            <div className="relative">
+                <ToolbarBtn
+                    onClick={() => {
+                        setShowHeadingMenu(!showHeadingMenu);
+                        setShowColorPicker(false);
+                    }}
+                    isActive={editor.isActive("heading")}
+                    title="Convert to Heading"
+                >
+                    <Heading1 size={15} />
+                </ToolbarBtn>
+
+                {showHeadingMenu && (
+                    <div
+                        className="absolute top-full left-1/2 -translate-x-1/2 mt-3 py-2 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl z-[9999] min-w-[140px]"
+                        onMouseDown={handleToolbarMouseDown}
+                    >
+                        <button
+                            onClick={() => {
+                                editor.chain().focus().toggleHeading({ level: 1 }).run();
+                                setShowHeadingMenu(false);
+                            }}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150",
+                                editor.isActive("heading", { level: 1 })
+                                    ? "bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
+                            )}
+                        >
+                            <Heading1 size={16} className="text-zinc-400 dark:text-zinc-500" />
+                            <span className="text-sm font-bold">Heading 1</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                editor.chain().focus().toggleHeading({ level: 2 }).run();
+                                setShowHeadingMenu(false);
+                            }}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150",
+                                editor.isActive("heading", { level: 2 })
+                                    ? "bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
+                            )}
+                        >
+                            <Heading2 size={16} className="text-zinc-400 dark:text-zinc-500" />
+                            <span className="text-sm font-semibold">Heading 2</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                editor.chain().focus().setParagraph().run();
+                                setShowHeadingMenu(false);
+                            }}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150",
+                                !editor.isActive("heading")
+                                    ? "bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
+                            )}
+                        >
+                            <span className="w-4 text-center text-zinc-400 dark:text-zinc-500 text-sm">¶</span>
+                            <span className="text-sm">Paragraph</span>
+                        </button>
                     </div>
                 )}
             </div>

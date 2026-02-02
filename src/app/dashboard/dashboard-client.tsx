@@ -24,6 +24,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "@/lib/date-utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { DocumentListSkeleton } from "@/components/ui/animations";
 
 type Document = Database["public"]["Tables"]["documents"]["Row"];
 
@@ -146,8 +148,8 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-border">
-                <Sparkles className="w-6 h-6 text-blue-400" />
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <Sparkles className="w-6 h-6 text-amber-500" />
               </div>
               <span className="font-bold text-xl text-foreground">AI Doc Formatter</span>
             </Link>
@@ -158,7 +160,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                 <p className="text-sm font-medium text-foreground">{user.user_metadata?.full_name || 'User'}</p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+              <div className="w-10 h-10 rounded-full bg-zinc-700 dark:bg-zinc-300 flex items-center justify-center text-zinc-100 dark:text-zinc-800 font-semibold">
                 {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
               </div>
               <Button
@@ -229,10 +231,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
               <Button
                 onClick={handleCreateDocument}
                 disabled={isCreating}
-                className="h-12 px-6 rounded-xl font-semibold text-white"
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                }}
+                className="h-12 px-6 rounded-xl font-semibold text-zinc-900 bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-500/25"
               >
                 <Plus className="mr-2" size={18} />
                 Create Document
@@ -240,16 +239,34 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredDocuments.map((doc) => (
-              <div
+          <motion.div 
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: { staggerChildren: 0.05 }
+              }
+            }}
+          >
+            <AnimatePresence>
+            {filteredDocuments.map((doc, index) => (
+              <motion.div
                 key={doc.id}
-                className="group relative bg-card hover:bg-card-hover border border-border hover:border-primary/30 rounded-2xl p-5 transition-all duration-200 cursor-pointer"
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: index * 0.03, duration: 0.3 }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="group relative bg-card hover:bg-card-hover border border-border hover:border-amber-500/30 rounded-2xl p-5 cursor-pointer hover:shadow-lg hover:shadow-amber-500/5"
                 onClick={() => handleOpenDocument(doc.id)}
               >
                 {/* Document Icon */}
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mb-4">
-                  <FileText className="w-6 h-6 text-blue-400" />
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                  <FileText className="w-6 h-6 text-amber-500" />
                 </div>
 
                 {/* Title */}
@@ -339,9 +356,10 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+            </AnimatePresence>
+          </motion.div>
         )}
       </main>
     </div>

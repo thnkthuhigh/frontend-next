@@ -131,13 +131,13 @@ export function TutorialOverlay({ onComplete }: TutorialOverlayProps) {
       {/* Highlight Box */}
       {highlightRect && (
         <div
-          className="fixed z-[101] border-2 border-blue-500 rounded-lg pointer-events-none animate-pulse"
+          className="fixed z-[101] border-2 border-amber-500 rounded-lg pointer-events-none animate-pulse"
           style={{
             top: highlightRect.top - 4,
             left: highlightRect.left - 4,
             width: highlightRect.width + 8,
             height: highlightRect.height + 8,
-            boxShadow: "0 0 -20px 20px rgba(59, 130, 246, 0.3)"
+            boxShadow: "0 0 20px 10px rgba(245, 158, 11, 0.2)"
           }}
         />
       )}
@@ -156,12 +156,12 @@ export function TutorialOverlay({ onComplete }: TutorialOverlayProps) {
             } : "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
           )}
         >
-          <div className="bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl border border-white/10 shadow-2xl p-6">
+          <div className="bg-zinc-900 dark:bg-zinc-800 rounded-2xl border border-zinc-700/50 shadow-2xl p-6">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20">
-                  <Sparkles className="w-5 h-5 text-blue-400" />
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">{currentStepData.title}</h3>
@@ -172,7 +172,7 @@ export function TutorialOverlay({ onComplete }: TutorialOverlayProps) {
                         className={cn(
                           "h-1.5 rounded-full transition-all duration-300",
                           index === currentStep
-                            ? "w-6 bg-gradient-to-r from-blue-500 to-purple-500"
+                            ? "w-6 bg-amber-500"
                             : "w-2 bg-white/20"
                         )}
                       />
@@ -212,7 +212,7 @@ export function TutorialOverlay({ onComplete }: TutorialOverlayProps) {
                 )}
                 <Button
                   onClick={handleNext}
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600"
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-900"
                   size="sm"
                 >
                   {currentStep < TUTORIAL_STEPS.length - 1 ? (
@@ -232,7 +232,7 @@ export function TutorialOverlay({ onComplete }: TutorialOverlayProps) {
 
       {/* Helper Tip */}
       <div className="fixed bottom-6 right-6 z-[102]">
-        <div className="bg-gradient-to-br from-gray-900 to-gray-950 rounded-xl border border-white/10 p-4 shadow-xl">
+        <div className="bg-zinc-900 dark:bg-zinc-800 rounded-xl border border-zinc-700/50 p-4 shadow-xl">
           <p className="text-sm text-white/60">
             <span className="font-medium text-white/80">Tip:</span> You can restart this tutorial anytime from settings
           </p>

@@ -13,6 +13,8 @@ import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
+import FontFamily from "@tiptap/extension-font-family";
+import { CustomImageExtension } from "./extensions/CustomImageExtension";
 import {
   Bold,
   Italic,
@@ -29,7 +31,6 @@ import {
   Minus,
   Undo,
   Redo,
-  Printer,
   Eye,
   Edit3,
   AlignLeft,
@@ -37,33 +38,26 @@ import {
   AlignRight,
   AlignJustify,
   Highlighter,
-  Palette,
-  Plus,
-  Trash2,
-  RowsIcon,
-  Columns,
   ListTodo,
-  Circle,
-  CircleDot,
-  Square,
-  Minus as DashIcon,
-  Check,
-  ArrowRight,
+  FileText,
+  Printer,
   ChevronDown,
+  Type,
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { useEditorStore } from "@/store/editor-store";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { PagedPreview } from "./PagedPreview";
-import { AIToolbar } from "./AIToolbar";
 import { FloatingToolbar } from "./FloatingToolbar";
+import { UnsplashImageSearch } from "./UnsplashImageSearch";
+import { KeyboardShortcutsModal, useKeyboardShortcuts } from "@/components/keyboard-shortcuts-modal";
 import { SlashCommand } from "./SlashCommand";
 import { AICommandHandler } from "./SlashCommand/AICommandHandler";
 import { Callout } from "./extensions/Callout";
 import { CustomBulletList, BULLET_STYLES, type BulletStyle } from "./extensions/CustomBulletList";
 import { SectionNavigator } from "./SectionNavigator";
 import { extractTOC, generateTOCJson } from "@/lib/toc-generator";
+import { setupImageHandlers } from "@/lib/editor-image-handlers";
 
 // A4 dimensions in mm for CSS
 const A4_WIDTH_MM = 210;
@@ -76,266 +70,269 @@ interface ToolbarButtonProps {
   disabled?: boolean;
   children: React.ReactNode;
   title?: string;
+  shortcut?: string;
 }
 
-function ToolbarButton({ onClick, isActive, disabled, children, title }: ToolbarButtonProps) {
+function ToolbarButton({ onClick, isActive, disabled, children, title, shortcut }: ToolbarButtonProps) {
+  // Format tooltip with shortcut
+  const tooltipText = shortcut ? `${title} (${shortcut})` : title;
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      title={title}
+      title={tooltipText}
       className={cn(
-        "p-2 rounded-lg transition-all duration-200 relative group",
+        "p-1.5 rounded-lg transition-all duration-200 group relative",
         isActive
-          ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-400 shadow-sm shadow-blue-500/10"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted",
-        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
+          ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 shadow-sm"
+          : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100/80 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/60",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent"
       )}
     >
-      {isActive && (
-        <div className="absolute inset-0 rounded-lg border border-blue-500/30" />
-      )}
-      <span className="relative">{children}</span>
+      {children}
     </button>
   );
 }
 
-function EditorToolbar({ editor, viewMode, onViewModeChange }: {
+// Toolbar Divider Component
+function ToolbarDivider() {
+  return <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-700 mx-1.5" />;
+}
+
+// Text Type Dropdown Component
+function TextTypeDropdown({ editor }: { editor: Editor }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getCurrentType = () => {
+    if (editor.isActive("heading", { level: 1 })) return "Heading 1";
+    if (editor.isActive("heading", { level: 2 })) return "Heading 2";
+    if (editor.isActive("heading", { level: 3 })) return "Heading 3";
+    return "Paragraph";
+  };
+
+  const options = [
+    { label: "Paragraph", icon: <Type size={14} />, action: () => editor.chain().focus().setParagraph().run() },
+    { label: "Heading 1", icon: <Heading1 size={14} />, action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+    { label: "Heading 2", icon: <Heading2 size={14} />, action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+    { label: "Heading 3", icon: <Heading3 size={14} />, action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+  ];
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium",
+          "text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100/80",
+          "dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/60"
+        )}
+        title="Text Type"
+      >
+        <Type size={14} />
+        <span className="hidden sm:inline text-xs">{getCurrentType()}</span>
+        <ChevronDown size={12} className={cn("transition-transform", isOpen && "rotate-180")} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-36 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg z-50">
+          {options.map((option) => (
+            <button
+              key={option.label}
+              onClick={() => {
+                option.action();
+                setIsOpen(false);
+              }}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors",
+                getCurrentType() === option.label
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+              )}
+            >
+              {option.icon}
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusModeChange }: {
   editor: Editor | null;
   viewMode: "edit" | "preview";
   onViewModeChange: (mode: "edit" | "preview") => void;
+  focusMode: boolean;
+  onFocusModeChange: (mode: boolean) => void;
 }) {
   if (!editor) return null;
 
   return (
-    <div className="relative flex items-center justify-between px-4 py-2.5 overflow-x-auto">
-      {/* Glassmorphism Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/5 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+    <div className="relative flex items-center justify-center px-6 py-4 overflow-visible">
+      {/* Floating Pill Toolbar - Glassmorphism Design */}
+      <div className="flex items-center gap-0.5 px-3 py-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-700/30 shadow-lg shadow-black/5 dark:shadow-black/20">
 
-      {/* Left: Formatting tools (only visible in edit mode) - scrollable on mobile */}
-      <div className={cn("relative flex items-center gap-1 flex-nowrap min-w-0", viewMode === "preview" && "opacity-30 pointer-events-none")}>
-        {/* History */}
-        <div className="flex items-center gap-0.5 pr-3 mr-1 border-r border-border">
+        {/* ===== SEGMENT 1: History ===== */}
+        <div className="flex items-center gap-0.5">
           <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             title="Undo"
+            shortcut="Ctrl+Z"
           >
-            <Undo size={18} />
+            <Undo size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
             title="Redo"
+            shortcut="Ctrl+Y"
           >
-            <Redo size={18} />
+            <Redo size={16} />
           </ToolbarButton>
         </div>
 
-        {/* Text Formatting */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <ToolbarDivider />
+
+        {/* ===== SEGMENT 2: Text Type Dropdown ===== */}
+        <TextTypeDropdown editor={editor} />
+
+        <ToolbarDivider />
+
+        {/* ===== SEGMENT 3: Formatting ===== */}
+        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             isActive={editor.isActive("bold")}
             title="Bold"
+            shortcut="Ctrl+B"
           >
-            <Bold size={18} />
+            <Bold size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleItalic().run()}
             isActive={editor.isActive("italic")}
             title="Italic"
+            shortcut="Ctrl+I"
           >
-            <Italic size={18} />
+            <Italic size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             isActive={editor.isActive("underline")}
             title="Underline"
+            shortcut="Ctrl+U"
           >
-            <UnderlineIcon size={18} />
+            <UnderlineIcon size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleStrike().run()}
             isActive={editor.isActive("strike")}
             title="Strikethrough"
+            shortcut="Ctrl+Shift+S"
           >
-            <Strikethrough size={18} />
+            <Strikethrough size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHighlight().run()}
             isActive={editor.isActive("highlight")}
             title="Highlight"
+            shortcut="Ctrl+Shift+H"
           >
-            <Highlighter size={18} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            isActive={editor.isActive("code")}
-            title="Inline Code"
-          >
-            <Code size={18} />
+            <Highlighter size={16} />
           </ToolbarButton>
         </div>
 
-        {/* Text Alignment */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        <ToolbarDivider />
+
+        {/* ===== SEGMENT 4: Alignment ===== */}
+        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
             isActive={editor.isActive({ textAlign: "left" })}
             title="Align Left"
           >
-            <AlignLeft size={18} />
+            <AlignLeft size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign("center").run()}
             isActive={editor.isActive({ textAlign: "center" })}
             title="Align Center"
           >
-            <AlignCenter size={18} />
+            <AlignCenter size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign("right").run()}
             isActive={editor.isActive({ textAlign: "right" })}
             title="Align Right"
           >
-            <AlignRight size={18} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-            isActive={editor.isActive({ textAlign: "justify" })}
-            title="Justify"
-          >
-            <AlignJustify size={18} />
+            <AlignRight size={16} />
           </ToolbarButton>
         </div>
 
-        {/* Colors */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setColor("#dc2626").run()}
-            title="Red Text"
-          >
-            <span className="w-4 h-4 rounded bg-red-600" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setColor("#2563eb").run()}
-            title="Blue Text"
-          >
-            <span className="w-4 h-4 rounded bg-blue-600" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setColor("#16a34a").run()}
-            title="Green Text"
-          >
-            <span className="w-4 h-4 rounded bg-green-600" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().unsetColor().run()}
-            title="Remove Color"
-          >
-            <Palette size={18} />
-          </ToolbarButton>
-        </div>
+        <ToolbarDivider />
 
-        {/* Headings */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            isActive={editor.isActive("heading", { level: 1 })}
-            title="Heading 1"
-          >
-            <Heading1 size={18} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            isActive={editor.isActive("heading", { level: 2 })}
-            title="Heading 2"
-          >
-            <Heading2 size={18} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            isActive={editor.isActive("heading", { level: 3 })}
-            title="Heading 3"
-          >
-            <Heading3 size={18} />
-          </ToolbarButton>
-        </div>
-
-        {/* Lists */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
+        {/* ===== SEGMENT 5: Lists & Blocks ===== */}
+        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             isActive={editor.isActive("bulletList")}
             title="Bullet List"
           >
-            <List size={18} />
+            <List size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             isActive={editor.isActive("orderedList")}
             title="Numbered List"
           >
-            <ListOrdered size={18} />
+            <ListOrdered size={16} />
           </ToolbarButton>
-          {/* List Style Dropdown - only show when in bulletList */}
-          {editor.isActive("bulletList") && (
-            <div className="relative group">
-              <button
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all",
-                  "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-                title="Change Bullet Style"
-              >
-                <span className="text-sm">●</span>
-                <ChevronDown size={12} />
-              </button>
-              {/* Dropdown Menu */}
-              <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-50">
-                <div className="bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[140px]">
-                  {BULLET_STYLES.map((style) => (
-                    <button
-                      key={style.id}
-                      onClick={() => editor.chain().focus().setBulletStyle(style.id as BulletStyle).run()}
-                      className={cn(
-                        "flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors",
-                        "hover:bg-muted text-foreground"
-                      )}
-                    >
-                      <span className="w-4 text-center">{style.icon}</span>
-                      <span>{style.label.split(' ')[1]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Block Elements */}
-        <div className="flex items-center gap-0.5 px-2 border-r border-border">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             isActive={editor.isActive("blockquote")}
             title="Quote"
           >
-            <Quote size={18} />
+            <Quote size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             isActive={editor.isActive("codeBlock")}
             title="Code Block"
           >
-            <Code size={18} />
+            <Code size={16} />
+          </ToolbarButton>
+        </div>
+
+        <ToolbarDivider />
+
+        {/* ===== SEGMENT 6: Insert ===== */}
+        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            title="Insert Table"
+          >
+            <TableIcon size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
             title="Horizontal Rule"
           >
-            <Minus size={18} />
+            <Minus size={16} />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => {
@@ -349,77 +346,70 @@ function EditorToolbar({ editor, viewMode, onViewModeChange }: {
             }}
             title="Insert Table of Contents"
           >
-            <ListTodo size={18} />
+            <ListTodo size={16} />
           </ToolbarButton>
         </div>
 
-        {/* Table */}
-        <div className="flex items-center gap-0.5 px-2">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            title="Insert Table"
-          >
-            <TableIcon size={18} />
-          </ToolbarButton>
-          {editor.isActive("table") && (
-            <>
-              <ToolbarButton
-                onClick={() => editor.chain().focus().addRowAfter().run()}
-                title="Add Row"
-              >
-                <Plus size={14} />
-                <RowsIcon size={14} />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => editor.chain().focus().addColumnAfter().run()}
-                title="Add Column"
-              >
-                <Plus size={14} />
-                <Columns size={14} />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => editor.chain().focus().deleteRow().run()}
-                title="Delete Row"
-              >
-                <Trash2 size={14} className="text-destructive" />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => editor.chain().focus().deleteTable().run()}
-                title="Delete Table"
-              >
-                <TableIcon size={14} className="text-destructive" />
-              </ToolbarButton>
-            </>
-          )}
-        </div>
-      </div>
+        <ToolbarDivider />
 
-      {/* Right: View Mode Toggle */}
-      <div className="relative flex items-center gap-1 p-1 rounded-xl bg-muted border border-border">
-        <button
-          onClick={() => onViewModeChange("edit")}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
-            viewMode === "edit"
-              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Edit3 size={14} />
-          Edit
-        </button>
-        <button
-          onClick={() => onViewModeChange("preview")}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
-            viewMode === "preview"
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Eye size={14} />
-          Preview
-        </button>
+        {/* ===== SEGMENT 7: View Mode Controls ===== */}
+        <div className="flex items-center gap-1">
+          {/* Focus/Print Mode Toggle */}
+          <div className="flex items-center p-0.5 rounded-full bg-zinc-100/80 dark:bg-zinc-800/60">
+            <button
+              onClick={() => onFocusModeChange(true)}
+              className={cn(
+                "p-1.5 rounded-full transition-all text-xs font-medium",
+                focusMode
+                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Focus Mode - Continuous scroll, no page breaks"
+            >
+              <FileText size={14} />
+            </button>
+            <button
+              onClick={() => onFocusModeChange(false)}
+              className={cn(
+                "p-1.5 rounded-full transition-all text-xs font-medium",
+                !focusMode
+                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Print Mode - A4 pages with margins"
+            >
+              <Printer size={14} />
+            </button>
+          </div>
+
+          {/* Edit/Preview Toggle */}
+          <div className="flex items-center p-0.5 rounded-full bg-zinc-100/80 dark:bg-zinc-800/60">
+            <button
+              onClick={() => onViewModeChange("edit")}
+              className={cn(
+                "p-1.5 rounded-full transition-all",
+                viewMode === "edit"
+                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Edit mode"
+            >
+              <Edit3 size={14} />
+            </button>
+            <button
+              onClick={() => onViewModeChange("preview")}
+              className={cn(
+                "p-1.5 rounded-full transition-all",
+                viewMode === "preview"
+                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Preview mode"
+            >
+              <Eye size={14} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -443,8 +433,13 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   } = useDocumentStore();
 
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
+  const [focusMode, setFocusMode] = useState(true); // Focus mode default - continuous scroll
+  const [showUnsplashSearch, setShowUnsplashSearch] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | undefined>();
   const [showSectionNav, setShowSectionNav] = useState(false); // Hidden - use Outline instead
+
+  // Keyboard shortcuts modal
+  const { isOpen: showShortcutsModal, close: closeShortcutsModal } = useKeyboardShortcuts();
 
   // Handle section reordering from SectionNavigator
   const handleSectionReorder = useCallback((newContent: Record<string, unknown>) => {
@@ -502,12 +497,24 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       multicolor: true,
     }),
     Underline,
+    // Phase 3: Font Family support
+    FontFamily.configure({
+      types: ['textStyle'],
+    }),
+    // Phase 4: Advanced Image support with High-DPI, resize, caption
+    CustomImageExtension.configure({
+      inline: false,
+      allowBase64: true,
+      HTMLAttributes: {
+        class: 'editor-image',
+      },
+    }),
     Callout,
     SlashCommand,
   ], []);
 
-  const { setEditor } = useEditorStore();
-  
+  const { setEditor, setEditorFocused } = useEditorStore();
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions,
@@ -531,6 +538,62 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     setEditor(editor);
     return () => setEditor(null);
   }, [editor, setEditor]);
+
+  // Focus Mode: Track editor focus state for sidebar opacity transitions
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleFocus = () => {
+      setEditorFocused(true);
+    };
+
+    const handleBlur = () => {
+      // Add a small delay before unfocusing to prevent flicker
+      setTimeout(() => {
+        setEditorFocused(false);
+      }, 150);
+    };
+
+    editor.on("focus", handleFocus);
+    editor.on("blur", handleBlur);
+
+    return () => {
+      editor.off("focus", handleFocus);
+      editor.off("blur", handleBlur);
+    };
+  }, [editor, setEditorFocused]);
+
+  // Listen for Unsplash image search event from SlashCommand
+  useEffect(() => {
+    const handleUnsplashEvent = () => {
+      setShowUnsplashSearch(true);
+    };
+
+    window.addEventListener("slash-unsplash-image", handleUnsplashEvent);
+    return () => {
+      window.removeEventListener("slash-unsplash-image", handleUnsplashEvent);
+    };
+  }, []);
+
+  // Phase 4: Setup image paste & drop handlers
+  useEffect(() => {
+    if (!editor) return;
+
+    const cleanup = setupImageHandlers(editor, {
+      onUploadStart: () => {
+        console.log('Uploading image...');
+      },
+      onUploadComplete: (url) => {
+        console.log('Image uploaded:', url);
+      },
+      onUploadError: (error) => {
+        console.error('Image upload failed:', error);
+        alert(`Upload failed: ${error}`);
+      },
+    });
+
+    return cleanup;
+  }, [editor]);
 
   // Sync content from store when it changes externally (e.g., AI analysis)
   // Prioritize JSON content over HTML
@@ -594,10 +657,13 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <EditorToolbar editor={editor} viewMode={viewMode} onViewModeChange={setViewMode} />
-
-      {/* AI Toolbar - Premium Features */}
-      <AIToolbar editor={editor} />
+      <EditorToolbar
+        editor={editor}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        focusMode={focusMode}
+        onFocusModeChange={setFocusMode}
+      />
 
       {/* Main Content Area with Section Navigator */}
       <div className="flex-1 flex overflow-hidden">
@@ -611,73 +677,43 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
           />
         )}
 
-        {/* Scrollable Document View */}
-        <div className="flex-1 overflow-auto bg-background-secondary py-8">
-          <div className="flex flex-col items-center gap-8 px-4">
-
-            {/* ===== COVER PAGE ===== */}
-            <div
-              className="bg-white shadow-xl document-page"
-              style={{
-                width: `${A4_WIDTH_MM}mm`,
-                minHeight: `297mm`,
-                padding: `${A4_MARGIN_MM}mm`,
-                fontFamily: styleConfig.fontFamily,
-                boxSizing: 'border-box',
-              }}
-            >
-              <div
-                className="h-full flex flex-col justify-center items-center text-center border-b-2"
-                style={{
-                  borderColor: styleConfig.accentColor,
-                  minHeight: `${A4_CONTENT_HEIGHT_MM}mm`,
-                }}
-              >
-                <h1
-                  className="text-3xl font-bold mb-4"
-                  style={{ color: styleConfig.headingColor }}
-                >
-                  {title || "Untitled Document"}
-                </h1>
-                {subtitle && (
-                  <h2
-                    className="text-xl italic mb-6"
-                    style={{ color: styleConfig.accentColor }}
-                  >
-                    {subtitle}
-                  </h2>
-                )}
-                <div className="w-16 h-0.5 my-6" style={{ backgroundColor: styleConfig.accentColor }} />
-                <div className="text-sm text-muted-foreground mt-auto mb-8">
-                  {author && <p>{author}</p>}
-                  {date && <p className="mt-1">{date}</p>}
+        {/* Scrollable Document View - Focus Mode vs Print Mode */}
+        <div className={cn(
+          "flex-1 overflow-auto transition-all duration-300",
+          focusMode
+            ? "bg-background" // Clean background for focus
+            : "bg-slate-100 dark:bg-zinc-950 pt-12 pb-20" // Cool gray paper background
+        )}>
+          {focusMode ? (
+            /* ===== FOCUS MODE - Continuous scroll, no page breaks ===== */
+            <div className="max-w-3xl mx-auto px-10 py-16">
+              {/* Optional Title Block */}
+              {(title || subtitle) && (
+                <div className="mb-12 pb-8 border-b border-border">
+                  {title && (
+                    <h1
+                      className="text-4xl font-bold mb-3"
+                      style={{ color: styleConfig.headingColor }}
+                    >
+                      {title}
+                    </h1>
+                  )}
+                  {subtitle && (
+                    <p className="text-lg text-muted-foreground italic">{subtitle}</p>
+                  )}
+                  {(author || date) && (
+                    <div className="text-sm text-muted-foreground mt-4 flex items-center gap-3">
+                      {author && <span>{author}</span>}
+                      {author && date && <span>•</span>}
+                      {date && <span>{date}</span>}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Page Break Indicator */}
-            <div className="flex items-center justify-center w-full max-w-[210mm] print:hidden">
-              <div className="flex-1 h-px bg-blue-300" />
-              <span className="text-xs text-blue-400 px-4 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full mx-2">
-                Page Break • Content starts on next page
-              </span>
-              <div className="flex-1 h-px bg-blue-300" />
-            </div>
-
-            {/* ===== CONTENT PAGE - Continuous Scroll ===== */}
-            <div
-              className="bg-white shadow-xl document-page"
-              style={{
-                width: `${A4_WIDTH_MM}mm`,
-                minHeight: `297mm`,
-                padding: `${A4_MARGIN_MM}mm`,
-                fontFamily: styleConfig.fontFamily,
-                boxSizing: 'border-box',
-              }}
-            >
-              {/* Editable Content */}
+              {/* Editable Content - Clean, distraction-free */}
               <div
-                className="document-content editor-content-wrapper"
+                className="document-content editor-content-wrapper prose prose-zinc dark:prose-invert max-w-none"
                 style={{
                   fontFamily: styleConfig.fontFamily,
                   '--heading-color': styleConfig.headingColor,
@@ -687,36 +723,117 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
                 <EditorContent editor={editor} />
               </div>
             </div>
+          ) : (
+            /* ===== PRINT MODE - A4 pages with margins ===== */
+            <div className="flex flex-col items-center gap-12 px-4 mt-10">
+              {/* Cover Page */}
+              <div
+                className="bg-white dark:bg-zinc-900 document-page transition-all duration-500"
+                style={{
+                  width: `${A4_WIDTH_MM}mm`,
+                  minHeight: `297mm`,
+                  padding: `${A4_MARGIN_MM + 10}mm`,
+                  fontFamily: styleConfig.fontFamily,
+                  boxSizing: 'border-box',
+                  /* Multi-layer shadow for floating effect */
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.02)',
+                }}
+              >
+                <div
+                  className="h-full flex flex-col justify-center items-center text-center border-b-2"
+                  style={{
+                    borderColor: styleConfig.accentColor,
+                    minHeight: `${A4_CONTENT_HEIGHT_MM}mm`,
+                  }}
+                >
+                  <h1
+                    className="text-3xl font-bold mb-4"
+                    style={{ color: styleConfig.headingColor }}
+                  >
+                    {title || "Untitled Document"}
+                  </h1>
+                  {subtitle && (
+                    <h2
+                      className="text-xl italic mb-6"
+                      style={{ color: styleConfig.accentColor }}
+                    >
+                      {subtitle}
+                    </h2>
+                  )}
+                  <div className="w-16 h-0.5 my-6" style={{ backgroundColor: styleConfig.accentColor }} />
+                  <div className="text-sm text-muted-foreground mt-auto mb-8">
+                    {author && <p>{author}</p>}
+                    {date && <p className="mt-1">{date}</p>}
+                  </div>
+                </div>
+              </div>
 
-            {/* Floating Toolbar - appears on text selection */}
-            <FloatingToolbar editor={editor} />
+              {/* Page Break Indicator */}
+              <div className="flex items-center justify-center w-full max-w-[210mm] print:hidden">
+                <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+                <span className="text-[10px] text-zinc-400 dark:text-zinc-600 px-4 py-1 font-medium">
+                  Page Break
+                </span>
+                <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+              </div>
 
-            {/* AI Command Handler - listens for slash command events */}
-            <AICommandHandler editor={editor} />
-
-            {/* Info Footer */}
-            <div className="text-center text-sm text-muted-foreground pb-4 print:hidden max-w-[210mm]">
-              <p className="mb-2">
-                💡 Type <strong>/</strong> for commands • Switch to <strong>Preview</strong> for exact page breaks
-              </p>
-              <p className="text-xs text-muted-foreground/80">
-                Slash commands: /h1, /table, /summary, /fix • Select text for AI toolbar
-              </p>
+              {/* Content Page */}
+              <div
+                className="bg-white dark:bg-zinc-900 document-page transition-all duration-500"
+                style={{
+                  width: `${A4_WIDTH_MM}mm`,
+                  minHeight: `297mm`,
+                  padding: `${A4_MARGIN_MM + 10}mm`,
+                  fontFamily: styleConfig.fontFamily,
+                  boxSizing: 'border-box',
+                  /* Multi-layer shadow for floating effect */
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.02)',
+                }}
+              >
+                <div
+                  className="document-content editor-content-wrapper"
+                  style={{
+                    fontFamily: styleConfig.fontFamily,
+                    '--heading-color': styleConfig.headingColor,
+                    '--accent-color': styleConfig.accentColor,
+                  } as React.CSSProperties}
+                >
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Print Button */}
-      <div className="fixed bottom-6 right-6 print:hidden z-50">
-        <Button
-          onClick={handlePrint}
-          size="lg"
-          className="shadow-xl bg-primary hover:bg-primary/90"
-        >
-          <Printer className="mr-2" size={20} />
-          Print / Export PDF
-        </Button>
+          {/* Floating Toolbar - appears on text selection (formatting only) */}
+          <FloatingToolbar editor={editor} />
+
+          {/* AI Command Handler - listens for slash command events */}
+          <AICommandHandler editor={editor} />
+
+          {/* Unsplash Image Search Modal */}
+          {editor && (
+            <UnsplashImageSearch
+              editor={editor}
+              isOpen={showUnsplashSearch}
+              onClose={() => setShowUnsplashSearch(false)}
+            />
+          )}
+
+          {/* Keyboard Shortcuts Modal */}
+          <KeyboardShortcutsModal
+            isOpen={showShortcutsModal}
+            onClose={closeShortcutsModal}
+          />
+
+          {/* Minimal Hint - only show when editor is empty */}
+          {!focusMode && (
+            <div className="text-center text-xs text-zinc-400 dark:text-zinc-500 pb-8 print:hidden max-w-[210mm] mx-auto">
+              Type <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-600 dark:text-zinc-400">/</kbd> for commands
+              <span className="mx-2 text-zinc-300 dark:text-zinc-600">•</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-600 dark:text-zinc-400">Ctrl+/</kbd> for shortcuts
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

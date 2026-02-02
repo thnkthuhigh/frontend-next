@@ -201,6 +201,19 @@ export const getSuggestionItems = ({ query }: { query: string }): CommandItem[] 
                 editor.chain().focus().deleteRange(range).setHorizontalRule().run();
             },
         },
+        {
+            title: "Unsplash Image",
+            description: "Search & insert free images",
+            icon: "🖼️",
+            group: "insert",
+            aliases: ["image", "photo", "unsplash", "picture", "ảnh", "hình"],
+            command: ({ editor, range }) => {
+                editor.chain().focus().deleteRange(range).run();
+                // Trigger Unsplash modal
+                const event = new CustomEvent("slash-unsplash-image", { detail: { editor } });
+                window.dispatchEvent(event);
+            },
+        },
     ];
 
     // Filter by query

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Toast } from "@/components/ui/toast";
+import { AnimatePresence } from "framer-motion";
 
 export type ToastType = "default" | "destructive" | "success" | "warning" | "info";
 
@@ -11,6 +12,7 @@ export interface ToastMessage {
   description?: string;
   variant?: ToastType;
   duration?: number;
+  action?: React.ReactNode;
 }
 
 interface ToastContextType {
@@ -36,16 +38,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const addToast = React.useCallback((toast: Omit<ToastMessage, "id">) => {
     const id = Math.random().toString(36).substring(2, 9);
     const newToast = { ...toast, id };
-    
+
     setToasts((prev) => [...prev, newToast]);
-    
+
     // Auto-remove after duration
     if (toast.duration !== 0) {
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, toast.duration || 5000);
     }
-    
+
     return id;
   }, []);
 
@@ -70,35 +72,38 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-md">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            variant={toast.variant}
-            title={toast.title}
-            description={toast.description}
-            onClose={() => removeToast(toast.id)}
-            duration={toast.duration}
-          />
-        ))}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+        <AnimatePresence mode="popLayout">
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              variant={toast.variant}
+              title={toast.title}
+              description={toast.description}
+              action={toast.action}
+              onClose={() => removeToast(toast.id)}
+              duration={toast.duration}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );
 }
 
 // Convenience functions
-export function toastSuccess(title: string, description?: string) {
-  return { title, description, variant: "success" as ToastType };
+export function toastSuccess(title: string, description?: string, action?: React.ReactNode) {
+  return { title, description, variant: "success" as ToastType, action };
 }
 
-export function toastError(title: string, description?: string) {
-  return { title, description, variant: "destructive" as ToastType };
+export function toastError(title: string, description?: string, action?: React.ReactNode) {
+  return { title, description, variant: "destructive" as ToastType, action };
 }
 
-export function toastWarning(title: string, description?: string) {
-  return { title, description, variant: "warning" as ToastType };
+export function toastWarning(title: string, description?: string, action?: React.ReactNode) {
+  return { title, description, variant: "warning" as ToastType, action };
 }
 
-export function toastInfo(title: string, description?: string) {
-  return { title, description, variant: "info" as ToastType };
+export function toastInfo(title: string, description?: string, action?: React.ReactNode) {
+  return { title, description, variant: "info" as ToastType, action };
 }

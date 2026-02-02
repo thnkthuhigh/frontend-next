@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Editor } from "@tiptap/react";
 import {
     Wand2,
@@ -37,12 +37,76 @@ interface AIToolbarProps {
 export function AIToolbar({ editor }: AIToolbarProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const [position, setPosition] = useState({ top: 0, left: 0 });
+    const toolbarRef = useRef<HTMLDivElement>(null);
 
+    // Update toolbar position based on selection
+    useEffect(() => {
+        if (!editor) return;
+
+        const updatePosition = () => {
+            const { from, to } = editor.state.selection;
+            const hasSelection = from !== to && !editor.state.selection.empty;
+            const isInCodeBlock = editor.isActive("codeBlock");
+
+            if (!hasSelection || isInCodeBlock) {
+                setIsVisible(false);
+                return;
+            }
+
+            // Get selection coordinates
+            const { view } = editor;
+            const start = view.coordsAtPos(from);
+            const end = view.coordsAtPos(to);
+
+            // Position toolbar above the selection
+            const toolbarHeight = 44;
+            const toolbarWidth = toolbarRef.current?.offsetWidth || 320;
+
+            // Calculate center of selection
+            const selectionCenterX = (start.left + end.right) / 2;
+
+            // Get editor container bounds
+            const editorElement = view.dom.closest('.editor-content-wrapper');
+            const editorRect = editorElement?.getBoundingClientRect() || { left: 0, right: window.innerWidth };
+
+            // Calculate left position, keeping toolbar within bounds
+            let left = selectionCenterX - toolbarWidth / 2;
+            left = Math.max(editorRect.left + 8, Math.min(left, editorRect.right - toolbarWidth - 8));
+
+            // Position above the selection
+            const top = start.top - toolbarHeight - 8;
+
+            setPosition({ top, left });
+            setIsVisible(true);
+        };
+
+        // Listen to selection changes
+        editor.on("selectionUpdate", updatePosition);
+        editor.on("blur", () => {
+            // Delay hiding to allow clicking toolbar buttons
+            setTimeout(() => {
+                if (!toolbarRef.current?.contains(document.activeElement)) {
+                    setIsVisible(false);
+                }
+            }, 150);
+        });
+
+        return () => {
+            editor.off("selectionUpdate", updatePosition);
+        };
+    }, [editor]);
+
+    // Early return after all hooks to comply with Rules of Hooks
     if (!editor) return null;
 
+    // Type assertion: editor is guaranteed non-null after this point
+    const editorInstance = editor as Editor;
+
     const getSelectedText = (): string => {
-        const { from, to } = editor.state.selection;
-        return editor.state.doc.textBetween(from, to, " ");
+        const { from, to } = editorInstance.state.selection;
+        return editorInstance.state.doc.textBetween(from, to, " ");
     };
 
     // AI Context interface
@@ -55,8 +119,8 @@ export function AIToolbar({ editor }: AIToolbarProps) {
 
     // Detect selection context for AI
     const detectSelectionContext = (): AIContext => {
-        const { from, to } = editor.state.selection;
-        const doc = editor.state.doc;
+        const { from, to } = editorInstance.state.selection;
+        const doc = editorInstance.state.doc;
         
         let format: "list" | "paragraph" | "mixed" = "paragraph";
         let itemCount = 0;
@@ -205,22 +269,22 @@ export function AIToolbar({ editor }: AIToolbarProps) {
     };
 
     const replaceSelection = (newText: string, preserveFormatting?: { hasBold?: boolean; hasItalic?: boolean; hasCode?: boolean }) => {
-        const { from, to } = editor.state.selection;
+        const { from, to } = editorInstance.state.selection;
         
         // Simple approach: Insert as plain text, apply formatting from original selection
-        editor.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
+        editorInstance.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
         
         // If original selection had formatting, re-apply it
         if (preserveFormatting) {
             const newTo = from + newText.length;
             if (preserveFormatting.hasBold) {
-                editor.chain().setTextSelection({ from, to: newTo }).toggleBold().run();
+                editorInstance.chain().setTextSelection({ from, to: newTo }).toggleBold().run();
             }
             if (preserveFormatting.hasItalic) {
-                editor.chain().setTextSelection({ from, to: newTo }).toggleItalic().run();
+                editorInstance.chain().setTextSelection({ from, to: newTo }).toggleItalic().run();
             }
             if (preserveFormatting.hasCode) {
-                editor.chain().setTextSelection({ from, to: newTo }).toggleCode().run();
+                editorInstance.chain().setTextSelection({ from, to: newTo }).toggleCode().run();
             }
         }
     };
@@ -249,6 +313,7 @@ export function AIToolbar({ editor }: AIToolbarProps) {
         } finally {
             setIsLoading(false);
             setLoadingAction(null);
+            setIsVisible(false);
         }
     };
 
@@ -273,11 +338,27 @@ export function AIToolbar({ editor }: AIToolbarProps) {
 
     const hasSelection = getSelectedText().trim().length > 0;
 
+    // Prevent toolbar clicks from losing selection
+    const handleToolbarMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+    };
+
+    if (!isVisible) return null;
+
     return (
-        <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+        <div
+            ref={toolbarRef}
+            onMouseDown={handleToolbarMouseDown}
+            className="fixed z-[10000] flex items-center gap-1 px-2 py-1 rounded-full bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border animate-in fade-in slide-in-from-bottom-2 duration-150"
+            style={{
+                top: `${position.top}px`,
+                left: `${position.left}px`,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05)',
+            }}
+        >
             <span className="text-xs font-medium text-muted-foreground mr-2 flex items-center gap-1">
                 <Wand2 className="h-3 w-3" />
-                AI Tools
+                AI
             </span>
 
             {/* Rewrite Dropdown */}
@@ -407,12 +488,6 @@ export function AIToolbar({ editor }: AIToolbarProps) {
                 )}
                 Sửa lỗi
             </Button>
-
-            {!hasSelection && (
-                <span className="text-xs text-muted-foreground ml-2">
-                    Chọn văn bản để sử dụng
-                </span>
-            )}
         </div>
     );
 }

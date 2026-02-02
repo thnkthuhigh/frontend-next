@@ -11,6 +11,20 @@ import {
 import { Editor, Range } from "@tiptap/core";
 import { CommandItem } from "./suggestion";
 import { cn } from "@/lib/utils";
+import {
+    Sparkles,
+    Type,
+    List,
+    Quote,
+    Code,
+    Table,
+    Image,
+    Minus,
+    FileText,
+    Languages,
+    Wand2,
+    CheckCircle,
+} from "lucide-react";
 
 export interface CommandListRef {
     onKeyDown: (props: { event: KeyboardEvent }) => boolean;
@@ -23,10 +37,33 @@ interface CommandListProps {
     range: Range;
 }
 
-const GROUP_LABELS: Record<string, { label: string; icon: string }> = {
-    ai: { label: "AI Magic", icon: "🤖" },
-    blocks: { label: "Basic Blocks", icon: "📝" },
-    insert: { label: "Insert", icon: "🧱" },
+const GROUP_LABELS: Record<string, { label: string; color: string }> = {
+    ai: { label: "AI", color: "text-violet-500" },
+    blocks: { label: "Basic", color: "text-zinc-500 dark:text-zinc-400" },
+    insert: { label: "Insert", color: "text-zinc-500 dark:text-zinc-400" },
+};
+
+// Map icon strings to Lucide icons
+const getIconComponent = (iconStr: string, isAI: boolean = false) => {
+    const iconClass = cn("w-4 h-4", isAI ? "text-violet-500" : "text-muted-foreground");
+    
+    switch (iconStr) {
+        case "✨": return <Sparkles className={iconClass} />;
+        case "📝": return <FileText className={iconClass} />;
+        case "🔧": return <CheckCircle className={iconClass} />;
+        case "🌐": return <Languages className={iconClass} />;
+        case "H1": return <span className="text-xs font-bold">H1</span>;
+        case "H2": return <span className="text-xs font-bold">H2</span>;
+        case "H3": return <span className="text-xs font-bold">H3</span>;
+        case "•": return <List className={iconClass} />;
+        case "1.": return <List className={iconClass} />;
+        case "❝": return <Quote className={iconClass} />;
+        case "</>": return <Code className={iconClass} />;
+        case "📊": return <Table className={iconClass} />;
+        case "🖼️": return <Image className={iconClass} />;
+        case "—": return <Minus className={iconClass} />;
+        default: return <span className="text-sm">{iconStr}</span>;
+    }
 };
 
 const CommandList = forwardRef<CommandListRef, CommandListProps>(
@@ -98,8 +135,8 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
 
         if (flatItems.length === 0) {
             return (
-                <div className="w-72 rounded-xl bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border shadow-xl p-4">
-                    <p className="text-muted-foreground text-sm text-center">No commands found</p>
+                <div className="w-64 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl p-4">
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center">No results</p>
                 </div>
             );
         }
@@ -107,19 +144,22 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
         let globalIndex = 0;
 
         return (
-            <div className="w-72 max-h-80 overflow-y-auto rounded-xl bg-popover dark:bg-[#1a1d24]/95 backdrop-blur-xl border border-border shadow-xl py-2">
+            <div className="w-64 max-h-80 overflow-y-auto rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl py-1">
                 {groupOrder.map((groupKey) => {
                     const groupItems = groupedItems[groupKey];
                     if (!groupItems || groupItems.length === 0) return null;
 
                     const groupInfo = GROUP_LABELS[groupKey];
+                    const isAI = groupKey === "ai";
 
                     return (
                         <div key={groupKey}>
-                            {/* Group Header */}
-                            <div className="px-3 py-1.5 flex items-center gap-2">
-                                <span className="text-sm">{groupInfo.icon}</span>
-                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            {/* Group Header - Minimal */}
+                            <div className="px-3 pt-2 pb-1">
+                                <span className={cn(
+                                    "text-[10px] font-semibold uppercase tracking-wider",
+                                    groupInfo.color
+                                )}>
                                     {groupInfo.label}
                                 </span>
                             </div>
@@ -136,31 +176,32 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                         className={cn(
                                             "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
                                             isSelected
-                                                ? "bg-primary/10 text-foreground"
-                                                : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                                                ? "bg-zinc-100 dark:bg-zinc-700"
+                                                : "hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
                                         )}
                                     >
-                                        <span
-                                            className={cn(
-                                                "w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium",
-                                                isSelected
-                                                    ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30"
-                                                    : "bg-muted"
-                                            )}
-                                        >
-                                            {item.icon}
-                                        </span>
+                                        {/* Icon */}
+                                        <div className={cn(
+                                            "w-7 h-7 flex items-center justify-center rounded border",
+                                            isSelected 
+                                                ? "border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800" 
+                                                : "border-transparent bg-zinc-100 dark:bg-zinc-700/50"
+                                        )}>
+                                            {getIconComponent(item.icon, isAI)}
+                                        </div>
+                                        
+                                        {/* Text */}
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{item.title}</p>
-                                            <p className="text-xs text-muted-foreground truncate">
+                                            <p className={cn(
+                                                "text-sm font-medium truncate",
+                                                isAI ? "text-violet-600 dark:text-violet-400" : "text-zinc-800 dark:text-zinc-200"
+                                            )}>
+                                                {item.title}
+                                            </p>
+                                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
                                                 {item.description}
                                             </p>
                                         </div>
-                                        {isSelected && (
-                                            <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                                                Enter
-                                            </span>
-                                        )}
                                     </button>
                                 );
                             })}
@@ -168,10 +209,10 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                     );
                 })}
 
-                {/* Footer hint */}
-                <div className="px-3 pt-2 mt-1 border-t border-border">
-                    <p className="text-[10px] text-muted-foreground text-center">
-                        ↑↓ Navigate • Enter Select • Esc Close
+                {/* Footer - Minimal keyboard hint */}
+                <div className="px-3 py-1.5 mt-1 border-t border-zinc-200 dark:border-zinc-700">
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center">
+                        ↑↓ to navigate · ↵ to select
                     </p>
                 </div>
             </div>

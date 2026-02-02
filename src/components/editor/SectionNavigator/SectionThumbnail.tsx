@@ -44,7 +44,7 @@ export function SectionThumbnail({ section, index, isActive, onClick }: SectionT
                 "group relative flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-all duration-150",
                 isDragging && "z-50 opacity-90 shadow-xl scale-105",
                 isActive
-                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30"
+                    ? "bg-amber-500/10 border border-amber-500/30"
                     : "hover:bg-white/5 border border-transparent"
             )}
             onClick={onClick}

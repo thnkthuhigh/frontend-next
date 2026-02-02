@@ -447,8 +447,7 @@ ${styles}
     const contentStyles = getPdfContentStyles(styleConfig, margins);
 
     return (
-        <div className={`flex flex-col h-full transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}
-            style={{ background: 'var(--gradient-background)' }}>
+        <div className={`flex flex-col h-full transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50' : ''} bg-zinc-200 dark:bg-zinc-900`}>
 
             {/* Hidden measurement iframe - must have proper width to measure correctly */}
             <iframe ref={measureIframeRef} srcDoc={measurementHtml} onLoad={handleMeasureIframeLoad}
@@ -533,11 +532,7 @@ ${styles}
 
                                 {/* Export button */}
                                 <button onClick={handleExportPDF} disabled={isExporting}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-50"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)'
-                                    }}>
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-zinc-900 transition-all duration-300 disabled:opacity-50 bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-500/30">
                                     {isExporting ? (
                                         <>
                                             <Loader2 size={18} className="animate-spin" />
@@ -648,17 +643,24 @@ ${styles}
                                     style={{
                                         ...pageStyle,
                                         height: `${A4_HEIGHT_MM}mm`,
-                                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)'
+                                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)'
                                     }}
                                     onMouseMove={(e) => handlePageMouseMove(e, index)}
                                     onMouseLeave={handlePageMouseLeave}
                                 >
+                                    {/* Page header */}
+                                    <div className="absolute top-3 left-0 right-0 px-6 flex justify-between items-center text-[9pt] text-gray-400">
+                                        <span className="truncate max-w-[60%]">{title || 'Untitled Document'}</span>
+                                        <span className="uppercase tracking-wider text-[8pt]">{selectedStyle}</span>
+                                    </div>
+                                    
                                     <style dangerouslySetInnerHTML={{ __html: contentStyles }} />
                                     <div className="measure-container" dangerouslySetInnerHTML={{ __html: page.content }} />
 
                                     {/* Page footer */}
-                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-400">
-                                        {index + 2}
+                                    <div className="absolute bottom-3 left-0 right-0 px-6 flex justify-between items-center text-[9pt] text-gray-400">
+                                        <span>{author || ''}</span>
+                                        <span>{index + 2}</span>
                                     </div>
                                 </div>
                             </div>
@@ -678,7 +680,7 @@ ${styles}
                             {Array.from({ length: totalPages }).map((_, i) => (
                                 <button key={i} onClick={() => goToPage(i)}
                                     className={`w-10 h-10 rounded-lg text-xs font-semibold transition-all duration-200 ${currentPage === i
-                                        ? 'bg-blue-500 text-white shadow-lg'
+                                        ? 'bg-amber-500 text-zinc-900 shadow-lg'
                                         : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'
                                         }`}>
                                     {i === 0 ? '📄' : i + 1}
