@@ -331,4 +331,75 @@
   .page-break::after {
     display: none !important;
   }
+
+  /* ===== SPRINT 2: PAGE BREAK OPTIMIZATION ===== */
+  
+  /* H1 starts new page automatically */
+  h1 {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* First H1 shouldn't create extra blank page */
+  h1:first-of-type,
+  .document-page h1:first-child {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  /* Prevent headings from being orphaned at bottom */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Keep content together */
+  p, li, blockquote {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Don't break inside these elements */
+  blockquote, pre, code, table, figure, img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Table rows shouldn't break */
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Lists should try to stay together */
+  ul, ol {
+    break-inside: avoid-page;
+  }
+
+  /* TOC shouldn't break across pages */
+  .toc-block,
+  .table-of-contents,
+  [data-type="table-of-contents"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Cover page should be on its own page */
+  .cover-page,
+  [data-type="coverPage"] {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  /* Front matter page numbering (lowercase roman) */
+  .front-matter {
+    counter-reset: page 1;
+  }
+
+  /* Main content page numbering (arabic) */
+  [data-zone="middle"] {
+    counter-reset: page 1;
+  }
 }

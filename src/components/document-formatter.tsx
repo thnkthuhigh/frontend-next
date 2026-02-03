@@ -1094,6 +1094,7 @@ export function DocumentFormatter({
               {sidebarTab === "structure" ? (
                 /* Structure / Outline Panel */
                 <OutlinePanel
+                  jsonContent={jsonContent || { type: 'doc', content: [] }}
                   onScrollToBlock={(blockId) => {
                     const element = document.querySelector(`[data-block-id="${blockId}"]`);
                     if (element) {
@@ -1102,6 +1103,12 @@ export function DocumentFormatter({
                       setTimeout(() => {
                         element.classList.remove('ring-2', 'ring-amber-500/50', 'ring-offset-2', 'ring-offset-transparent');
                       }, 1500);
+                    }
+                  }}
+                  onScrollToHeading={(headingId) => {
+                    const element = document.querySelector(`[data-heading-id="${headingId}"]`);
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                   }}
                 />

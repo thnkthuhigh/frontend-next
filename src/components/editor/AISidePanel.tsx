@@ -20,6 +20,7 @@ import {
     Check,
     Trash2,
     PanelRightClose,
+    BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +33,7 @@ import {
     RewriteStyle,
     TranslateLanguage,
 } from "@/lib/api";
+import { useResearchStore } from "@/store/research-store";
 
 interface AISidePanelProps {
     editor: Editor | null;
@@ -86,6 +88,9 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
     const [processingAction, setProcessingAction] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    
+    // Research context integration
+    const { hasContext, getContextString } = useResearchStore();
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -162,6 +167,14 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         if (!editor || !prompt.trim()) return;
 
         const selectedText = getSelectedText();
+        
+        // Enhance prompt with research context if available
+        let enhancedPrompt = prompt;
+        if (hasContext()) {
+            const researchContext = getContextString();
+            enhancedPrompt = `${prompt}\n\n[Research Context - Use this information to enhance your response]:\n${researchContext}`;
+        }
+        
         addMessage("user", prompt);
         setIsProcessing(true);
         setInputValue("");
@@ -169,11 +182,11 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         try {
             const result = await customPrompt({
                 text: selectedText || "No text selected",
-                prompt: prompt,
+                prompt: enhancedPrompt,
             });
 
             if (result.success && result.result) {
-                addMessage("assistant", result.result, "custom");
+                addMessage("assistant", result.result, hasContext() ? "research-enhanced" : "custom");
             } else {
                 addMessage("assistant", "Sorry, I couldn't process that request. Please try again.");
             }
@@ -183,7 +196,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         } finally {
             setIsProcessing(false);
         }
-    }, [editor, getSelectedText, addMessage]);
+    }, [editor, getSelectedText, addMessage, hasContext, getContextString]);
 
     // Handle quick actions - P1-002: Track which specific action is processing
     const handleQuickAction = useCallback(async (actionType: string, actionId: string) => {
@@ -529,9 +542,21 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                                 )}
                             >
                                 {message.action && (
-                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mb-1 block">
-                                        {message.action}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        {message.action === "research-enhanced" && (
+                                            <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full">
+                                                <BookOpen size={10} className="text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                                    Research-enhanced
+                                                </span>
+                                            </div>
+                                        )}
+                                        {message.action !== "research-enhanced" && (
+                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                {message.action}
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                                 <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
 

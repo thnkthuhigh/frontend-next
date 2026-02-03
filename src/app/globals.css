@@ -1664,3 +1664,305 @@ figcaption.image-caption {
     max-width: 100% !important;
   }
 }
+
+/* ===== AUTO-NUMBERING SYSTEM (SPRINT 2) ===== */
+
+/* Initialize counters at document root */
+.ProseMirror,
+.document-content,
+.document-page {
+  counter-reset: h1 0;
+}
+
+/* H1 Counter - Top level */
+.ProseMirror h1,
+.document-content h1,
+.document-page h1 {
+  counter-reset: h2 0;
+  counter-increment: h1;
+}
+
+.ProseMirror h1::before,
+.document-content h1::before,
+.document-page h1::before {
+  content: counter(h1) ". ";
+  margin-right: 0.5em;
+  font-weight: 700;
+  color: inherit;
+}
+
+/* H2 Counter - Second level */
+.ProseMirror h2,
+.document-content h2,
+.document-page h2 {
+  counter-reset: h3 0;
+  counter-increment: h2;
+}
+
+.ProseMirror h2::before,
+.document-content h2::before,
+.document-page h2::before {
+  content: counter(h1) "." counter(h2) " ";
+  margin-right: 0.5em;
+  font-weight: 600;
+  color: inherit;
+}
+
+/* H3 Counter - Third level */
+.ProseMirror h3,
+.document-content h3,
+.document-page h3 {
+  counter-increment: h3;
+}
+
+.ProseMirror h3::before,
+.document-content h3::before,
+.document-page h3::before {
+  content: counter(h1) "." counter(h2) "." counter(h3) " ";
+  margin-right: 0.5em;
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Disable numbering for Front Matter zone */
+.front-matter h1::before,
+.front-matter h2::before,
+.front-matter h3::before,
+[data-zone="front"] h1::before,
+[data-zone="front"] h2::before,
+[data-zone="front"] h3::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Disable numbering for Back Matter zone */
+.back-matter h1::before,
+.back-matter h2::before,
+.back-matter h3::before,
+[data-zone="back"] h1::before,
+[data-zone="back"] h2::before,
+[data-zone="back"] h3::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Disable numbering for Cover Page */
+.cover-page h1::before,
+.cover-page h2::before,
+.cover-page h3::before,
+[data-type="coverPage"] h1::before,
+[data-type="coverPage"] h2::before,
+[data-type="coverPage"] h3::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Disable numbering for specific non-numbered headings */
+.no-number::before,
+h1.no-number::before,
+h2.no-number::before,
+h3.no-number::before,
+[data-no-number="true"]::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* TOC headings should not be numbered */
+.toc-block h1::before,
+.toc-block h2::before,
+.toc-block h3::before,
+.table-of-contents h1::before,
+.table-of-contents h2::before,
+.table-of-contents h3::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Reset counters for Main Content zone only */
+[data-zone="middle"] {
+  counter-reset: h1 0;
+}
+
+/* Print-specific numbering adjustments */
+@media print {
+  .ProseMirror h1::before,
+  .ProseMirror h2::before,
+  .ProseMirror h3::before,
+  .document-content h1::before,
+  .document-content h2::before,
+  .document-content h3::before,
+  .document-page h1::before,
+  .document-page h2::before,
+  .document-page h3::before {
+    /* Ensure numbering is visible in print */
+    display: inline !important;
+  }
+  
+  /* But still hide for front/back matter in print */
+  .front-matter h1::before,
+  .front-matter h2::before,
+  .front-matter h3::before,
+  .back-matter h1::before,
+  .back-matter h2::before,
+  .back-matter h3::before,
+  [data-zone="front"] h1::before,
+  [data-zone="front"] h2::before,
+  [data-zone="front"] h3::before,
+  [data-zone="back"] h1::before,
+  [data-zone="back"] h2::before,
+  [data-zone="back"] h3::before {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   SPRINT 4: CITATIONS & BIBLIOGRAPHY STYLING
+   ============================================ */
+
+/* Citation Mark - Inline citations (e.g., "(Smith, 2024)" or "[1]") */
+mark[data-type="citation"],
+.citation-mark {
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 0 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: rgb(59, 130, 246);
+  font-weight: 500;
+}
+
+mark[data-type="citation"]:hover,
+.citation-mark:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-bottom-color: rgb(59, 130, 246);
+}
+
+/* Dark mode citations */
+.dark mark[data-type="citation"],
+.dark .citation-mark {
+  background: rgba(96, 165, 250, 0.15);
+  border-bottom-color: rgba(96, 165, 250, 0.4);
+  color: rgb(96, 165, 250);
+}
+
+.dark mark[data-type="citation"]:hover,
+.dark .citation-mark:hover {
+  background: rgba(96, 165, 250, 0.25);
+  border-bottom-color: rgb(96, 165, 250);
+}
+
+/* Invalid/broken citation warning */
+mark[data-type="citation"][data-invalid="true"],
+.citation-mark.invalid {
+  background: rgba(239, 68, 68, 0.1);
+  border-bottom-color: rgba(239, 68, 68, 0.5);
+  color: rgb(239, 68, 68);
+}
+
+/* Bibliography Block Container */
+.bibliography-block,
+[data-type="bibliography"] {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: rgba(249, 250, 251, 0.5);
+  border: 1px solid rgb(229, 231, 235);
+  border-radius: 8px;
+  page-break-inside: avoid;
+}
+
+.dark .bibliography-block,
+.dark [data-type="bibliography"] {
+  background: rgba(17, 24, 39, 0.5);
+  border-color: rgb(55, 65, 81);
+}
+
+/* Bibliography Title */
+.bibliography-block h2,
+.bibliography-block .bibliography-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: rgb(17, 24, 39);
+  border-bottom: 2px solid rgb(59, 130, 246);
+  padding-bottom: 0.5rem;
+}
+
+.dark .bibliography-block h2,
+.dark .bibliography-block .bibliography-title {
+  color: rgb(243, 244, 246);
+}
+
+/* Bibliography Entries List */
+.bibliography-entries {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.bibliography-entry {
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+  text-indent: -2rem;
+  line-height: 1.6;
+  color: rgb(55, 65, 81);
+}
+
+.dark .bibliography-entry {
+  color: rgb(209, 213, 219);
+}
+
+/* IEEE-style numbered entries */
+.bibliography-entry.numbered {
+  padding-left: 2.5rem;
+  text-indent: -2.5rem;
+}
+
+.bibliography-entry .entry-number {
+  font-weight: 600;
+  color: rgb(59, 130, 246);
+  margin-right: 0.5rem;
+}
+
+/* Unused reference warning */
+.bibliography-entry.unused {
+  opacity: 0.5;
+  position: relative;
+}
+
+.bibliography-entry.unused::after {
+  content: "⚠️ Unused";
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 0.75rem;
+  color: rgb(234, 179, 8);
+  font-weight: 500;
+}
+
+/* Print-specific styles */
+@media print {
+  mark[data-type="citation"],
+  .citation-mark {
+    background: none;
+    border-bottom: none;
+    color: inherit;
+    font-weight: inherit;
+  }
+  
+  .bibliography-block,
+  [data-type="bibliography"] {
+    background: none;
+    border: none;
+    padding: 0;
+    page-break-inside: avoid;
+  }
+  
+  .bibliography-block h2 {
+    border-bottom-color: #000;
+  }
+  
+  .bibliography-entry.unused::after {
+    display: none;
+  }
+}

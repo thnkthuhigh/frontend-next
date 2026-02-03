@@ -42,7 +42,7 @@ const ALIGN_OPTIONS = [
   { icon: Maximize2, value: "full", title: "Full Width" },
 ];
 
-export function ImageBlock({ node, updateAttributes, selected, editor }: ImageBlockProps): JSX.Element {
+export function ImageBlock({ node, updateAttributes, selected, editor }: ImageBlockProps): React.JSX.Element {
   const {
     src,
     alt,

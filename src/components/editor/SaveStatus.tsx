@@ -1,9 +1,9 @@
 'use client';
 
-import { Check, Loader2, AlertCircle } from 'lucide-react';
+import { Check, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type SaveStatusType = 'idle' | 'saving' | 'saved' | 'error';
+export type SaveStatusType = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 
 interface SaveStatusProps {
   status: SaveStatusType;
@@ -29,15 +29,20 @@ export function SaveStatus({ status, lastSaved, className }: SaveStatusProps) {
       text: 'Saving...',
       color: 'text-blue-600'
     },
-    saved: { 
-      icon: <Check className="w-3 h-3" />, 
-      text: lastSaved ? `Saved ${formatTimeAgo(lastSaved)}` : 'Saved', 
-      color: 'text-green-600' 
+    saved: {
+      icon: <Check className="w-3 h-3" />,
+      text: lastSaved ? `Saved ${formatTimeAgo(lastSaved)}` : 'Saved',
+      color: 'text-green-600'
     },
-    error: { 
-      icon: <AlertCircle className="w-3 h-3" />, 
-      text: 'Error saving', 
-      color: 'text-red-600' 
+    error: {
+      icon: <AlertCircle className="w-3 h-3" />,
+      text: 'Error saving',
+      color: 'text-red-600'
+    },
+    offline: {
+      icon: <WifiOff className="w-3 h-3" />,
+      text: 'Offline - will sync when online',
+      color: 'text-amber-600'
     },
   };
 

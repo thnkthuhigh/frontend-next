@@ -3,6 +3,8 @@
  * Handles real-time token-by-token responses from AI
  */
 
+import React from 'react';
+
 export interface SSEMessage {
   type: 'token' | 'done' | 'error' | 'cancelled';
   content?: string;
@@ -259,6 +261,3 @@ export function useSSEStream() {
     cancelStream,
   };
 }
-
-// Import React for the hook
-import React from 'react';

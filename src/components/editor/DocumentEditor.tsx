@@ -15,6 +15,12 @@ import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import FontFamily from "@tiptap/extension-font-family";
 import { CustomImageExtension } from "./extensions/CustomImageExtension";
+import { FrontMatterExtension } from "./extensions/FrontMatterExtension";
+import { TableOfContentsExtension } from "./extensions/TableOfContentsExtension";
+import { ListOfFiguresExtension } from "./extensions/ListOfFiguresExtension";
+import { ListOfTablesExtension } from "./extensions/ListOfTablesExtension";
+import { CitationExtension } from "./extensions/CitationExtension";
+import { BibliographyExtension } from "./extensions/BibliographyExtension";
 import {
   Bold,
   Italic,
@@ -51,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { PagedPreview } from "./PagedPreview";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { UnsplashImageSearch } from "./UnsplashImageSearch";
+import { CitationView } from "./CitationView";
 import { KeyboardShortcutsModal, useKeyboardShortcuts } from "@/components/keyboard-shortcuts-modal";
 import { SlashCommand } from "./SlashCommand";
 import { AICommandHandler } from "./SlashCommand/AICommandHandler";
@@ -560,6 +567,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [focusMode, setFocusMode] = useState(true); // Focus mode default - continuous scroll
   const [showUnsplashSearch, setShowUnsplashSearch] = useState(false);
+  const [showCitationModal, setShowCitationModal] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | undefined>();
   const [showSectionNav, setShowSectionNav] = useState(false); // Hidden - use Outline instead
   const [isToolbarCompact, setIsToolbarCompact] = useState(false); // Smart toolbar compact mode
@@ -653,6 +661,12 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       },
     }),
     Callout,
+    FrontMatterExtension,
+    TableOfContentsExtension,
+    ListOfFiguresExtension,
+    ListOfTablesExtension,
+    CitationExtension,
+    BibliographyExtension,
     SlashCommand,
   ], []);
 
@@ -757,6 +771,18 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     window.addEventListener("slash-unsplash-image", handleUnsplashEvent);
     return () => {
       window.removeEventListener("slash-unsplash-image", handleUnsplashEvent);
+    };
+  }, []);
+
+  // Listen for Citation insert event from SlashCommand
+  useEffect(() => {
+    const handleCitationEvent = () => {
+      queueMicrotask(() => setShowCitationModal(true));
+    };
+
+    window.addEventListener("slash-citation", handleCitationEvent);
+    return () => {
+      window.removeEventListener("slash-citation", handleCitationEvent);
     };
   }, []);
 
@@ -1019,6 +1045,15 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
               editor={editor}
               isOpen={showUnsplashSearch}
               onClose={() => setShowUnsplashSearch(false)}
+            />
+          )}
+
+          {/* Citation Insert/Edit Modal */}
+          {editor && (
+            <CitationView
+              editor={editor}
+              isOpen={showCitationModal}
+              onClose={() => setShowCitationModal(false)}
             />
           )}
 

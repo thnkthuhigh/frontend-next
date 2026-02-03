@@ -1,8 +1,11 @@
 /**
  * Document Store - Single Source of Truth Architecture
- * 
+ *
  * The editor uses Tiptap JSON (jsonContent) as the primary data format.
  * HTML is derived from JSON for export/preview compatibility.
+ *
+ * Note: Uses localStorage for quick access.
+ * IndexedDB auto-save is handled separately by AutoSaveManager.
  */
 
 import { create } from "zustand";
@@ -27,12 +30,17 @@ export const MARGIN_PRESETS = {
 
 export type MarginPreset = keyof typeof MARGIN_PRESETS;
 
+import { DocumentStructure } from "../types/document-structure";
+
 export interface DocumentState {
   // Document metadata
   title: string;
   subtitle: string;
   author: string;
   date: string;
+
+  // Document structure for professional documents
+  structure?: DocumentStructure;
 
   // Single Source of Truth - Tiptap JSON content
   jsonContent: JSONContent | null;
@@ -55,6 +63,7 @@ export interface DocumentState {
   setSubtitle: (subtitle: string) => void;
   setAuthor: (author: string) => void;
   setDate: (date: string) => void;
+  setStructure: (structure: DocumentStructure) => void;
   setSelectedStyle: (style: string) => void;
   setOutputFormat: (format: DocumentState["outputFormat"]) => void;
   setIsProcessing: (processing: boolean) => void;
@@ -66,11 +75,14 @@ export interface DocumentState {
   reset: () => void;
 }
 
+// Add setStructure to initialState and store
+
 const initialState = {
   title: "",
   subtitle: "",
   author: "",
   date: "",
+  structure: undefined,
   jsonContent: null as JSONContent | null,
   selectedStyle: "professional",
   outputFormat: "docx" as const,
@@ -90,6 +102,7 @@ export const useDocumentStore = create<DocumentState>()(
       setSubtitle: (subtitle) => set({ subtitle }),
       setAuthor: (author) => set({ author }),
       setDate: (date) => set({ date }),
+      setStructure: (structure) => set({ structure }),
       setSelectedStyle: (selectedStyle) => set({ selectedStyle }),
       setOutputFormat: (outputFormat) => set({ outputFormat }),
       setIsProcessing: (isProcessing) => set({ isProcessing }),
@@ -104,13 +117,15 @@ export const useDocumentStore = create<DocumentState>()(
       reset: () => set(initialState),
     }),
     {
-      name: "ai-doc-formatter-storage", // unique name for localStorage key
+      name: "ai-doc-formatter-storage", // localStorage for quick sync access
+      // Note: IndexedDB auto-save handled separately by AutoSaveManager
       partialize: (state) => ({
         // Only persist these fields
         title: state.title,
         subtitle: state.subtitle,
         author: state.author,
         date: state.date,
+        structure: state.structure,
         jsonContent: state.jsonContent,
         htmlContent: state.htmlContent,
         rawContent: state.rawContent,

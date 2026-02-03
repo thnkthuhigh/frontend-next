@@ -214,6 +214,79 @@ export const getSuggestionItems = ({ query }: { query: string }): CommandItem[] 
                 window.dispatchEvent(event);
             },
         },
+        {
+            title: "Table of Contents",
+            description: "Insert auto-generated TOC",
+            icon: "📑",
+            group: "insert",
+            aliases: ["toc", "contents", "mục lục", "mucluc"],
+            command: ({ editor, range }) => {
+                editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .insertTOC()
+                    .run();
+            },
+        },
+        {
+            title: "List of Figures",
+            description: "Insert list of all figures",
+            icon: "🖼️",
+            group: "insert",
+            aliases: ["lof", "figures", "danh sách hình"],
+            command: ({ editor, range }) => {
+                editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .insertLOF()
+                    .run();
+            },
+        },
+        {
+            title: "List of Tables",
+            description: "Insert list of all tables",
+            icon: "📊",
+            group: "insert",
+            aliases: ["lot", "tables", "danh sách bảng"],
+            command: ({ editor, range }) => {
+                editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .insertLOT()
+                    .run();
+            },
+        },
+        {
+            title: "Citation",
+            description: "Insert citation reference",
+            icon: "📝",
+            group: "insert",
+            aliases: ["cite", "reference", "trích dẫn"],
+            command: ({ editor, range }) => {
+                editor.chain().focus().deleteRange(range).run();
+                // Trigger Citation modal
+                const event = new CustomEvent("slash-citation", { detail: { editor } });
+                window.dispatchEvent(event);
+            },
+        },
+        {
+            title: "Bibliography",
+            description: "Insert bibliography/references list",
+            icon: "📚",
+            group: "insert",
+            aliases: ["references", "works cited", "tài liệu tham khảo"],
+            command: ({ editor, range }) => {
+                editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .insertBibliography()
+                    .run();
+            },
+        },
     ];
 
     // Filter by query
