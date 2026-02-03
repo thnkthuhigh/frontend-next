@@ -23,10 +23,11 @@ function formatTimeAgo(date: Date): string {
 export function SaveStatus({ status, lastSaved, className }: SaveStatusProps) {
   const config = {
     idle: { icon: null, text: '', color: '' },
-    saving: { 
-      icon: <Loader2 className="w-3 h-3 animate-spin" />, 
-      text: 'Saving...', 
-      color: 'text-blue-600' 
+    // P2-011: Slower animation speed (1s→1.5s via animation-duration)
+    saving: {
+      icon: <Loader2 className="w-3 h-3 animate-spin" style={{ animationDuration: '1.5s' }} />,
+      text: 'Saving...',
+      color: 'text-blue-600'
     },
     saved: { 
       icon: <Check className="w-3 h-3" />, 

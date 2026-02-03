@@ -679,10 +679,11 @@ ${styles}
                         <div className="flex flex-col gap-2">
                             {Array.from({ length: totalPages }).map((_, i) => (
                                 <button key={i} onClick={() => goToPage(i)}
-                                    className={`w-10 h-10 rounded-lg text-xs font-semibold transition-all duration-200 ${currentPage === i
+                                    className={`w-11 h-14 rounded-lg text-xs font-semibold transition-all duration-200 touch-manipulation ${currentPage === i
                                         ? 'bg-amber-500 text-zinc-900 shadow-lg'
                                         : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'
-                                        }`}>
+                                        }`}
+                                    style={{ minWidth: '44px', minHeight: '56px' }}>
                                     {i === 0 ? '📄' : i + 1}
                                 </button>
                             ))}

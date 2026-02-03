@@ -4,16 +4,21 @@
 
 :root {
   /* ===== PROFESSIONAL MONOCHROME DESIGN SYSTEM ===== */
-  
+
   /* === DARK MODE (Default) === */
   /* Core Colors - Professional Dark */
-  --background: #09090B;           /* Zinc-950 - Almost black */
-  --background-secondary: #18181B; /* Zinc-900 - Slightly lighter */
-  --foreground: #FAFAFA;           /* Off-white for text */
+  --background: #09090B;
+  /* Zinc-950 - Almost black */
+  --background-secondary: #18181B;
+  /* Zinc-900 - Slightly lighter */
+  --foreground: #FAFAFA;
+  /* Off-white for text */
 
   /* Card System */
-  --card: #18181B;                 /* Zinc-900 */
-  --card-hover: #27272A;           /* Zinc-800 */
+  --card: #18181B;
+  /* Zinc-900 */
+  --card-hover: #27272A;
+  /* Zinc-800 */
   --card-foreground: #FAFAFA;
 
   /* Popover */
@@ -21,51 +26,74 @@
   --popover-foreground: #FAFAFA;
 
   /* Primary - Now Monochrome (Dark in dark mode) */
-  --primary: #18181B;              /* Zinc-900 for primary actions */
-  --primary-hover: #27272A;        /* Zinc-800 */
+  --primary: #18181B;
+  /* Zinc-900 for primary actions */
+  --primary-hover: #27272A;
+  /* Zinc-800 */
   --primary-foreground: #FAFAFA;
 
   /* Secondary */
-  --secondary: #27272A;            /* Zinc-800 */
-  --secondary-hover: #3F3F46;      /* Zinc-700 */
+  --secondary: #27272A;
+  /* Zinc-800 */
+  --secondary-hover: #3F3F46;
+  /* Zinc-700 */
   --secondary-foreground: #FAFAFA;
 
   /* Muted */
-  --muted: #27272A;                /* Zinc-800 */
-  --muted-foreground: #A1A1AA;     /* Zinc-400 */
+  --muted: #27272A;
+  /* Zinc-800 */
+  --muted-foreground: #A1A1AA;
+  /* Zinc-400 */
 
-  /* Accent - Amber (Use Sparingly!) */
-  --accent: #F59E0B;               /* Amber-500 - Only for highlights */
-  --accent-hover: #D97706;         /* Amber-600 */
-  --accent-foreground: #18181B;
+  /* Accent - Burnt Amber (Refined, Professional) */
+  --accent: #b45309;
+  /* Amber-700 - Warm, less saturated */
+  --accent-hover: #92400e;
+  /* Amber-800 */
+  --accent-foreground: #fefce8;
+  /* Amber-50 for contrast */
 
   /* Semantic Colors */
-  --success: #10B981;              /* Green-500 */
-  --warning: #F59E0B;              /* Amber-500 */
-  --destructive: #EF4444;          /* Red-500 */
+  --success: #10B981;
+  /* Green-500 */
+  --warning: #F59E0B;
+  /* Amber-500 */
+  --destructive: #EF4444;
+  /* Red-500 */
   --destructive-foreground: #FAFAFA;
-  --info: #3B82F6;                 /* Blue-500 - Only for informational */
+  --info: #3B82F6;
+  /* Blue-500 - Only for informational */
 
   /* Borders & Inputs */
-  --border: #3F3F46;               /* Zinc-700 */
-  --border-hover: #52525B;         /* Zinc-600 */
-  --input: #27272A;                /* Zinc-800 */
-  --ring: #52525B;                 /* Zinc-600 */
+  --border: #3F3F46;
+  /* Zinc-700 */
+  --border-hover: #52525B;
+  /* Zinc-600 */
+  --input: #27272A;
+  /* Zinc-800 */
+  --ring: #52525B;
+  /* Zinc-600 */
 
   /* Shadows - Modern soft elevation */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.2);
-  
-  /* Paper effect shadow */
+
+  /* Paper effect shadow - P1-012: Dark mode uses subtle glow effect */
   --paper-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --paper-shadow-dark: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 
   /* Border Radius */
   --radius: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+
+  /* === Motion Tokens (Day 3) === */
+  --transition-fast: 120ms ease-out;
+  --transition-normal: 180ms ease-out;
+  --transition-slow: 300ms ease-out;
 }
 
 @theme inline {
@@ -93,65 +121,157 @@
   --radius-lg: var(--radius);
 }
 
-/* ===== LIGHT MODE (Professional Cool Gray) ===== */
+/* ===== LIGHT MODE (Pure Neutral Zinc - No Warm Tint) ===== */
 .light {
-  /* Core Colors - Clean Cool Gray Theme for professional document editing */
-  --background: #F1F5F9;           /* Slate-100 - Cool Gray tone */
-  --background-secondary: #E2E8F0; /* Slate-200 */
-  --foreground: #0F172A;           /* Slate-900 - Deep blue-black */
+  /* Core Colors - Pure Zinc palette (no yellow/warm tint) */
+  --background: #FAFAFA;
+  /* Zinc-50 - Pure neutral */
+  --background-secondary: #F4F4F5;
+  /* Zinc-100 */
+  --foreground: #18181B;
+  /* Zinc-900 - True black-gray */
 
   /* Card System - Pure white for paper contrast */
-  --card: #FFFFFF;                 /* Pure white - A4 paper */
-  --card-hover: #F8FAFC;           /* Slate-50 */
-  --card-foreground: #0F172A;
+  --card: #FFFFFF;
+  /* Pure white - A4 paper */
+  --card-hover: #FAFAFA;
+  /* Zinc-50 */
+  --card-foreground: #18181B;
 
   /* Popover */
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #18181B;
 
   /* Primary - Now Monochrome (Light in light mode) */
-  --primary: #FFFFFF;              /* White for primary actions */
-  --primary-hover: #F1F5F9;        /* Slate-100 */
-  --primary-foreground: #0F172A;
+  --primary: #FFFFFF;
+  /* White for primary actions */
+  --primary-hover: #F4F4F5;
+  /* Zinc-100 */
+  --primary-foreground: #18181B;
 
   /* Secondary */
-  --secondary: #E2E8F0;            /* Slate-200 */
-  --secondary-hover: #CBD5E1;      /* Slate-300 */
-  --secondary-foreground: #0F172A;
+  --secondary: #F4F4F5;
+  /* Zinc-100 */
+  --secondary-hover: #E4E4E7;
+  /* Zinc-200 */
+  --secondary-foreground: #18181B;
 
   /* Muted */
-  --muted: #E2E8F0;                /* Slate-200 */
-  --muted-foreground: #64748B;     /* Slate-500 */
+  --muted: #F4F4F5;
+  /* Zinc-100 */
+  --muted-foreground: #71717A;
+  /* Zinc-500 */
 
-  /* Accent - Amber (Use Sparingly!) */
-  --accent: #F59E0B;               /* Amber-500 - Only for highlights */
-  --accent-hover: #D97706;         /* Amber-600 */
-  --accent-foreground: #FFFFFF;
+  /* Accent - Amber 600 (warmer for better visibility) */
+  --accent: #d97706;
+  /* Amber-600 */
+  --accent-hover: #b45309;
+  /* Amber-700 */
+  --accent-foreground: #FFFBEB;
+  /* Amber-50 */
 
   /* Semantic Colors */
-  --success: #10B981;              /* Green-500 */
-  --warning: #F59E0B;              /* Amber-500 */
-  --destructive: #EF4444;          /* Red-500 */
+  --success: #10B981;
+  /* Green-500 */
+  --warning: #F59E0B;
+  /* Amber-500 */
+  --destructive: #EF4444;
+  /* Red-500 */
   --destructive-foreground: #FFFFFF;
-  --info: #3B82F6;                 /* Blue-500 - Only for informational */
+  --info: #3B82F6;
+  /* Blue-500 - Only for informational */
 
-  /* Borders & Inputs */
-  --border: #CBD5E1;               /* Slate-300 */
-  --border-hover: #94A3B8;         /* Slate-400 */
-  --input: #F1F5F9;                /* Slate-100 */
-  --ring: #94A3B8;                 /* Slate-400 */
+  /* Borders & Inputs - Zinc for neutral feel */
+  --border: #E4E4E7;
+  /* Zinc-200 */
+  --border-hover: #D4D4D8;
+  /* Zinc-300 */
+  --input: #FAFAFA;
+  /* Zinc-50 */
+  --ring: #A1A1AA;
+  /* Zinc-400 */
 
   /* Shadows - Multi-layer for depth */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
-  
+
   /* Paper effect shadow - Multi-layer deep effect for A4 paper */
   --paper-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   --paper-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -8px rgba(0, 0, 0, 0.1);
 }
 
+
+/* ===== GLOBAL MOTION SYSTEM ===== */
+
+/* Universal button interactions - tactile press feedback */
+button,
+[role="button"],
+.btn {
+  transition: transform 120ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled),
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Smooth hover lift effect for interactive cards */
+.hover-lift {
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Sidebar toggle animation */
+.sidebar-transition {
+  transition: width 250ms ease-out,
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+/* Dropdown/popover entry animation */
+.dropdown-enter {
+  animation: dropdownEnter 150ms ease-out forwards;
+}
+
+@keyframes dropdownEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Stagger animation for list items */
+.stagger-item {
+  animation: staggerFade 180ms ease-out forwards;
+  animation-fill-mode: both;
+}
+
+@keyframes staggerFade {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
 * {
   border-color: var(--border);
@@ -159,7 +279,8 @@
 
 /* Text selection styling */
 ::selection {
-  background: rgba(245, 158, 11, 0.3); /* Amber with opacity */
+  background: rgba(245, 158, 11, 0.3);
+  /* Amber with opacity */
   color: inherit;
 }
 
@@ -217,8 +338,10 @@ body {
 
 /* Base typography for editor - Enhanced line-height for comfortable reading */
 .ProseMirror {
-  font-size: 1.0625rem; /* 17px base */
-  line-height: 1.8; /* Increased for easier PDF reading */
+  font-size: 1.0625rem;
+  /* 17px base */
+  line-height: 1.8;
+  /* Increased for easier PDF reading */
   color: var(--foreground);
 }
 
@@ -257,7 +380,8 @@ body {
 
 .prose p,
 .ProseMirror p {
-  font-size: 1.0625rem; /* 17px for better readability */
+  font-size: 1.0625rem;
+  /* 17px for better readability */
   line-height: 1.75;
   margin-bottom: 1.25em;
 }
@@ -307,9 +431,9 @@ body {
 }
 
 /* First heading - no top margin */
-.ProseMirror > h1:first-child,
-.ProseMirror > h2:first-child,
-.ProseMirror > h3:first-child {
+.ProseMirror>h1:first-child,
+.ProseMirror>h2:first-child,
+.ProseMirror>h3:first-child {
   margin-top: 0;
 }
 
@@ -510,17 +634,17 @@ body {
 }
 
 .tiptap ul[data-bullet-style="dash"]::marker,
-.tiptap ul[data-bullet-style="dash"] > li::marker {
+.tiptap ul[data-bullet-style="dash"]>li::marker {
   content: "— ";
 }
 
 .tiptap ul[data-bullet-style="check"]::marker,
-.tiptap ul[data-bullet-style="check"] > li::marker {
+.tiptap ul[data-bullet-style="check"]>li::marker {
   content: "✓ ";
 }
 
 .tiptap ul[data-bullet-style="arrow"]::marker,
-.tiptap ul[data-bullet-style="arrow"] > li::marker {
+.tiptap ul[data-bullet-style="arrow"]>li::marker {
   content: "→ ";
 }
 
@@ -661,6 +785,7 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -668,9 +793,12 @@ body {
 
 /* Subtle bounce for buttons */
 @keyframes subtle-bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-2px);
   }
@@ -678,10 +806,13 @@ body {
 
 /* Pulse animation for active states */
 @keyframes gentle-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.05);
     opacity: 0.9;
@@ -1355,6 +1486,7 @@ figcaption.image-caption {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -1489,7 +1621,7 @@ figcaption.image-caption {
 }
 
 /* Add spacing after image nodes */
-.ProseMirror .image-node-view + * {
+.ProseMirror .image-node-view+* {
   clear: both;
   margin-top: 1rem;
 }
@@ -1521,13 +1653,13 @@ figcaption.image-caption {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  
+
   .image-resize-handle,
   .image-toolbar,
   .image-dimension-badge {
     display: none !important;
   }
-  
+
   .image-container img {
     max-width: 100% !important;
   }

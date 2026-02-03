@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Toast } from "@/components/ui/toast";
 import { AnimatePresence } from "framer-motion";
+import { useEditorStore } from "@/store/editor-store";
+import { cn } from "@/lib/utils";
 
 export type ToastType = "default" | "destructive" | "success" | "warning" | "info";
 
@@ -34,6 +36,8 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<ToastMessage[]>([]);
+  // P1-011: Get AI panel state for adaptive positioning
+  const isAIPanelOpen = useEditorStore((state) => state.isAIPanelOpen);
 
   const addToast = React.useCallback((toast: Omit<ToastMessage, "id">) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -72,7 +76,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      {/* P1-011: Adaptive positioning - shift left when AI panel is open (panel is ~350px wide) */}
+      <div
+        className={cn(
+          "fixed top-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none transition-all duration-300",
+          isAIPanelOpen ? "right-[370px]" : "right-4"
+        )}
+      >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (
             <Toast

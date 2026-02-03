@@ -250,9 +250,9 @@ export function UnsplashImageSearch({ editor, onClose, isOpen }: UnsplashImageSe
                     </div>
                 </div>
 
-                {/* Image Grid */}
+                {/* Image Grid - P2-005: Grid gap already at gap-3, adding better spacing */}
                 <div className="px-4 pb-4 overflow-y-auto max-h-[50vh]">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-3.5">
                         {images.map((photo) => (
                             <button
                                 key={photo.id}

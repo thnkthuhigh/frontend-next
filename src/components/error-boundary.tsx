@@ -72,12 +72,12 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
 
           <div className="max-w-2xl w-full space-y-8 z-10">
-            {/* Error Icon */}
+            {/* P2-010: Error Icon - Using amber for brand consistency */}
             <div className="flex justify-center">
               <div className="relative">
-                <div className="absolute inset-0 bg-red-500 rounded-2xl blur-xl opacity-30 animate-pulse" />
-                <div className="relative p-6 rounded-2xl bg-zinc-900 border border-red-500/30">
-                  <AlertTriangle className="w-16 h-16 text-red-500" />
+                <div className="absolute inset-0 bg-amber-500 rounded-2xl blur-xl opacity-30 animate-pulse" />
+                <div className="relative p-6 rounded-2xl bg-zinc-900 border border-amber-500/30">
+                  <AlertTriangle className="w-16 h-16 text-amber-500" />
                 </div>
               </div>
             </div>
@@ -93,10 +93,11 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Error Details (Collapsible for developers) */}
+            {/* P2-010: Changed from red to amber for brand consistency */}
             <div className="bg-zinc-900/80 backdrop-blur-sm rounded-xl border border-zinc-700/50 overflow-hidden">
-              <div className="p-4 bg-red-500/10 border-b border-zinc-700/50">
+              <div className="p-4 bg-amber-500/10 border-b border-zinc-700/50">
                 <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                  <AlertTriangle size={14} className="text-red-500" />
+                  <AlertTriangle size={14} className="text-amber-500" />
                   Error Details
                 </h3>
               </div>
@@ -104,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs font-medium text-white/50 mb-1">Error Message</p>
-                    <code className="block p-3 bg-black/30 rounded-lg text-sm text-red-300 font-mono overflow-x-auto">
+                    <code className="block p-3 bg-black/30 rounded-lg text-sm text-amber-300 font-mono overflow-x-auto">
                       {this.state.error?.message || "Unknown error"}
                     </code>
                   </div>

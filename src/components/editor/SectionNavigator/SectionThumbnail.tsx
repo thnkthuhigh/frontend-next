@@ -86,17 +86,17 @@ export function SectionThumbnail({ section, index, isActive, onClick }: SectionT
                     {section.title || "Untitled Section"}
                 </p>
 
-                {/* Mini Preview - Skeleton lines */}
+                {/* Mini Preview - Skeleton lines - P2-003: Improved contrast (0.15→0.25) */}
                 <div className="mt-2 space-y-1">
                     {section.preview ? (
-                        <p className="text-[10px] text-white/40 line-clamp-2">
+                        <p className="text-[10px] text-white/50 line-clamp-2">
                             {section.preview}
                         </p>
                     ) : (
                         <>
-                            <div className="h-1.5 w-full bg-white/10 rounded" />
-                            <div className="h-1.5 w-3/4 bg-white/10 rounded" />
-                            <div className="h-1.5 w-1/2 bg-white/10 rounded" />
+                            <div className="h-1.5 w-full bg-white/20 rounded" />
+                            <div className="h-1.5 w-3/4 bg-white/15 rounded" />
+                            <div className="h-1.5 w-1/2 bg-white/15 rounded" />
                         </>
                     )}
                 </div>

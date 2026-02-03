@@ -27,9 +27,11 @@ export function ThemeToggle() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [theme, setTheme]);
 
+    // P2-009: Cycle through light → dark → system
     const handleThemeToggle = () => {
         setIsAnimating(true);
-        setTheme(theme === "dark" ? "light" : "dark");
+        const nextTheme = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+        setTheme(nextTheme);
         setTimeout(() => setIsAnimating(false), 300);
     };
 

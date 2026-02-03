@@ -7,7 +7,8 @@ import {
   FileCode,
   FileType,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,8 @@ interface ExportDropdownProps {
   isExporting: boolean;
   isProcessing: boolean;
   exportProgress: number;
+  // P1-005: Cancel export callback
+  onCancelExport?: () => void;
 }
 
 export function ExportDropdown({
@@ -35,46 +38,48 @@ export function ExportDropdown({
   onExportMarkdown,
   isExporting,
   isProcessing,
-  exportProgress
+  exportProgress,
+  onCancelExport,
 }: ExportDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const isLoading = isExporting || isProcessing;
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="default"
-          disabled={isLoading}
-          className={cn(
-            "gap-2 font-medium bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-gray-100 transition-colors",
-            isLoading ? "pl-4 pr-4" : "pl-4 pr-3"
-          )}
-        >
-          {/* Progress Overlay */}
-          {isExporting && (
-            <div
-              className="absolute inset-0 bg-white/20 transition-all duration-300"
-              style={{ width: `${exportProgress}%` }}
-            />
-          )}
+    <div className="flex items-center gap-1">
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="default"
+            disabled={isLoading}
+            className={cn(
+              "gap-2 font-medium bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-gray-100 transition-colors",
+              isLoading ? "pl-4 pr-4" : "pl-4 pr-3"
+            )}
+          >
+            {/* Progress Overlay */}
+            {isExporting && (
+              <div
+                className="absolute inset-0 bg-white/20 transition-all duration-300"
+                style={{ width: `${exportProgress}%` }}
+              />
+            )}
 
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
 
-          <span className="relative z-10">
-            {isExporting ? `Exporting ${exportProgress}%` : isProcessing ? "Processing..." : "Export"}
-          </span>
+            <span className="relative z-10">
+              {isExporting ? `Exporting ${exportProgress}%` : isProcessing ? "Processing..." : "Export"}
+            </span>
 
-          {!isLoading && (
-            <ChevronDown className={cn("w-3.5 h-3.5 opacity-70 transition-transform", isOpen && "rotate-180")} />
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+            {!isLoading && (
+              <ChevronDown className={cn("w-3.5 h-3.5 opacity-70 transition-transform", isOpen && "rotate-180")} />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 p-2">
         <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 py-1.5">
           Download As
@@ -112,6 +117,20 @@ export function ExportDropdown({
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+
+      {/* P1-005: Cancel button shown during export */}
+      {isExporting && onCancelExport && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onCancelExport}
+          className="h-9 px-2 border-destructive text-destructive hover:bg-destructive/10"
+          title="Cancel export"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      )}
+    </div>
   );
 }

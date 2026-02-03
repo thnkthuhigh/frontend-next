@@ -1,6 +1,19 @@
 import React from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
 
+// P2-013: Customizable header/footer options
+interface HeaderFooterConfig {
+    showHeader?: boolean;
+    showFooter?: boolean;
+    headerLeft?: string;
+    headerCenter?: string;
+    headerRight?: string;
+    footerLeft?: string;
+    footerCenter?: string;
+    footerRight?: string;
+    showPageNumbers?: boolean;
+}
+
 interface DocumentPrintLayoutProps {
     title: string;
     subtitle: string;
@@ -12,12 +25,62 @@ interface DocumentPrintLayoutProps {
         headingColor: string;
         accentColor: string;
     };
+    // P2-013: Header/Footer customization
+    headerFooterConfig?: HeaderFooterConfig;
 }
 
 export const DocumentPrintLayout = React.forwardRef<HTMLDivElement, DocumentPrintLayoutProps>(
-    ({ title, subtitle, author, date, htmlContent, styleConfig }, ref) => {
+    ({ title, subtitle, author, date, htmlContent, styleConfig, headerFooterConfig }, ref) => {
+        // P2-013: Default header/footer config
+        const hfConfig: HeaderFooterConfig = {
+            showHeader: true,
+            showFooter: true,
+            headerLeft: '',
+            headerCenter: title || 'Document',
+            headerRight: '',
+            footerLeft: author || '',
+            footerCenter: '',
+            footerRight: 'Page {pageNumber}',
+            showPageNumbers: true,
+            ...headerFooterConfig
+        };
+
         return (
             <div ref={ref} className="print-source">
+                {/* P2-013: Print Header/Footer CSS */}
+                <style>{`
+                    @page {
+                        @top-left { content: "${hfConfig.headerLeft}"; }
+                        @top-center { content: "${hfConfig.headerCenter}"; }
+                        @top-right { content: "${hfConfig.headerRight}"; }
+                        @bottom-left { content: "${hfConfig.footerLeft}"; }
+                        @bottom-center { content: "${hfConfig.showPageNumbers ? 'counter(page)' : hfConfig.footerCenter}"; }
+                        @bottom-right { content: "${hfConfig.footerRight?.replace('{pageNumber}', '" counter(page) "')}"; }
+                    }
+                    
+                    /* Running header/footer for Paged.js */
+                    .pagedjs_pagebox {
+                        --pagedjs-string-title: "${hfConfig.headerCenter}";
+                    }
+                    
+                    .pagedjs_margin-top-center::after {
+                        content: var(--pagedjs-string-title);
+                        font-size: 9pt;
+                        color: #666;
+                    }
+                    
+                    .pagedjs_margin-bottom-center::after {
+                        content: counter(page);
+                        font-size: 9pt;
+                        color: #666;
+                    }
+                    
+                    .pagedjs_margin-bottom-left::after {
+                        content: "${hfConfig.footerLeft}";
+                        font-size: 9pt;
+                        color: #666;
+                    }
+                `}</style>
                 {/* Cover Page */}
                 <div
                     className="cover-page"

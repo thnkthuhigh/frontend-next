@@ -1,12 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, Lock, User, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+// P2-006: Real-time validation helpers
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  let score = 0;
+  if (password.length >= 6) score++;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  
+  if (score <= 1) return { score, label: "Weak", color: "text-red-400" };
+  if (score <= 2) return { score, label: "Fair", color: "text-amber-400" };
+  if (score <= 3) return { score, label: "Good", color: "text-yellow-400" };
+  return { score, label: "Strong", color: "text-green-400" };
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,6 +41,17 @@ export default function RegisterPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  
+  // P2-006: Real-time validation states
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  
+  const nameValid = useMemo(() => fullName.trim().length >= 2, [fullName]);
+  const emailValid = useMemo(() => isValidEmail(email), [email]);
+  const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
+  const passwordsMatch = useMemo(() => password === confirmPassword && confirmPassword.length > 0, [password, confirmPassword]);
 
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,50 +217,119 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Register Form */}
+            {/* Register Form - P2-006: Real-time validation */}
             <form onSubmit={handleEmailRegister} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Full Name</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Full Name</span>
+                  {nameTouched && fullName && (
+                    <span className={cn(
+                      "text-xs flex items-center gap-1 transition-colors",
+                      nameValid ? "text-green-400" : "text-amber-400"
+                    )}>
+                      {nameValid ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {nameValid ? "Valid" : "Too short"}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <User className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    nameTouched && fullName
+                      ? nameValid ? "text-green-400" : "text-amber-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    onBlur={() => setNameTouched(true)}
                     placeholder="John Doe"
                     required
-                    className="h-12 pl-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      nameTouched && fullName
+                        ? nameValid
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-amber-500/50 hover:border-amber-500/70 focus:border-amber-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Email</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Email</span>
+                  {emailTouched && email && (
+                    <span className={cn(
+                      "text-xs flex items-center gap-1 transition-colors",
+                      emailValid ? "text-green-400" : "text-red-400"
+                    )}>
+                      {emailValid ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {emailValid ? "Valid" : "Invalid email"}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <Mail className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    emailTouched && email
+                      ? emailValid ? "text-green-400" : "text-red-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouched(true)}
                     placeholder="you@example.com"
                     required
-                    className="h-12 pl-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      emailTouched && email
+                        ? emailValid
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-red-500/50 hover:border-red-500/70 focus:border-red-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Password</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Password</span>
+                  {passwordTouched && password && (
+                    <span className={cn("text-xs flex items-center gap-1 transition-colors", passwordStrength.color)}>
+                      {password.length >= 6 ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {passwordStrength.label}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <Lock className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    passwordTouched && password
+                      ? password.length >= 6 ? "text-green-400" : "text-amber-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setPasswordTouched(true)}
                     placeholder="••••••••"
                     required
                     minLength={6}
-                    className="h-12 pl-10 pr-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 pr-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      passwordTouched && password
+                        ? password.length >= 6
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-amber-500/50 hover:border-amber-500/70 focus:border-amber-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                   <button
                     type="button"
@@ -238,19 +339,62 @@ export default function RegisterPage() {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {/* Password strength indicator bar */}
+                {passwordTouched && password && (
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={cn(
+                          "h-1 flex-1 rounded-full transition-all",
+                          passwordStrength.score >= level
+                            ? level <= 1 ? "bg-red-500"
+                            : level <= 2 ? "bg-amber-500"
+                            : level <= 3 ? "bg-yellow-500"
+                            : "bg-green-500"
+                            : "bg-white/10"
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Confirm Password</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Confirm Password</span>
+                  {confirmTouched && confirmPassword && (
+                    <span className={cn(
+                      "text-xs flex items-center gap-1 transition-colors",
+                      passwordsMatch ? "text-green-400" : "text-red-400"
+                    )}>
+                      {passwordsMatch ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {passwordsMatch ? "Match" : "No match"}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <Lock className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    confirmTouched && confirmPassword
+                      ? passwordsMatch ? "text-green-400" : "text-red-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => setConfirmTouched(true)}
                     placeholder="••••••••"
                     required
-                    className="h-12 pl-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      confirmTouched && confirmPassword
+                        ? passwordsMatch
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-red-500/50 hover:border-red-500/70 focus:border-red-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                 </div>
               </div>

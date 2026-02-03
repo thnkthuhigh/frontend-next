@@ -29,6 +29,10 @@ interface FloatingToolbarProps {
     editor: Editor | null;
 }
 
+// P1-008: Recent colors storage key
+const RECENT_COLORS_KEY = 'docformatter_recent_colors';
+const MAX_RECENT_COLORS = 5;
+
 export function FloatingToolbar({ editor }: FloatingToolbarProps) {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showHeadingMenu, setShowHeadingMenu] = useState(false);
@@ -36,7 +40,38 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const toolbarRef = useRef<HTMLDivElement>(null);
 
-    // Update toolbar position based on selection
+    // P1-008: Recent colors state
+    const [recentColors, setRecentColors] = useState<string[]>([]);
+
+    // P1-008: Load recent colors from localStorage on mount
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(RECENT_COLORS_KEY);
+            if (stored) {
+                setRecentColors(JSON.parse(stored));
+            }
+        } catch {
+            // Ignore parsing errors
+        }
+    }, []);
+
+    // P1-008: Add color to recent colors and save to localStorage
+    const addToRecentColors = useCallback((color: string) => {
+        if (!color) return;
+
+        setRecentColors(prev => {
+            const filtered = prev.filter(c => c !== color);
+            const updated = [color, ...filtered].slice(0, MAX_RECENT_COLORS);
+            try {
+                localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(updated));
+            } catch {
+                // Ignore storage errors
+            }
+            return updated;
+        });
+    }, []);
+
+    // P0-003: Update toolbar position with improved collision detection
     useEffect(() => {
         if (!editor) return;
 
@@ -55,23 +90,42 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
             const start = view.coordsAtPos(from);
             const end = view.coordsAtPos(to);
 
-            // Position toolbar above the selection
-            const toolbarHeight = 44;
+            // P0-003: Dynamic toolbar dimensions
+            const toolbarHeight = toolbarRef.current?.offsetHeight || 44;
             const toolbarWidth = toolbarRef.current?.offsetWidth || 280;
+            const padding = 12; // Increased padding from edges
+            const verticalOffset = 20; // Day 4: Increased breathing room above selection
 
             // Calculate center of selection
             const selectionCenterX = (start.left + end.right) / 2;
 
             // Get editor container bounds
             const editorElement = view.dom.closest('.editor-content-wrapper');
-            const editorRect = editorElement?.getBoundingClientRect() || { left: 0, right: window.innerWidth };
+            const editorRect = editorElement?.getBoundingClientRect() || { left: 0, right: window.innerWidth, top: 0 };
 
-            // Calculate left position, keeping toolbar within bounds
+            // P0-003: Calculate left position with viewport collision detection
             let left = selectionCenterX - toolbarWidth / 2;
-            left = Math.max(editorRect.left + 8, Math.min(left, editorRect.right - toolbarWidth - 8));
+            // Prevent left overflow
+            left = Math.max(padding, left);
+            // Prevent right overflow
+            left = Math.min(left, window.innerWidth - toolbarWidth - padding);
+            // Also respect editor bounds
+            left = Math.max(editorRect.left + padding, Math.min(left, editorRect.right - toolbarWidth - padding));
 
-            // Position above the selection
-            const top = start.top - toolbarHeight - 8;
+            // P0-003 + P0-1: Calculate top position with viewport collision detection + breathing room
+            let top = start.top - toolbarHeight - padding - verticalOffset;
+            let flipToBottom = false;
+
+            // If toolbar would be above viewport, flip to bottom of selection
+            if (top < padding) {
+                top = end.bottom + padding;
+                flipToBottom = true;
+            }
+
+            // If still overflows bottom, position at viewport top
+            if (flipToBottom && top + toolbarHeight > window.innerHeight - padding) {
+                top = padding;
+            }
 
             setPosition({ top, left });
             setIsVisible(true);
@@ -137,7 +191,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
         <div
             ref={toolbarRef}
             onMouseDown={handleToolbarMouseDown}
-            className="fixed z-[9999] flex items-center gap-1 px-3 py-2 rounded-full bg-white dark:bg-zinc-800 backdrop-blur-xl shadow-xl border border-zinc-200 dark:border-zinc-700 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+            data-floating-toolbar
+            className="fixed z-[9999] flex items-center gap-1 px-3 py-2 rounded-full bg-white dark:bg-zinc-800 backdrop-blur-xl shadow-md shadow-black/5 dark:shadow-black/20 border border-zinc-200/80 dark:border-zinc-700/60 animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-150"
             style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`,
@@ -196,6 +251,28 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
                         className="absolute top-full left-1/2 -translate-x-1/2 mt-3 p-3 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl z-[9999]"
                         onMouseDown={handleToolbarMouseDown}
                     >
+                        {/* P1-008: Recent colors row */}
+                        {recentColors.length > 0 && (
+                            <div className="mb-2 pb-2 border-b border-zinc-200 dark:border-zinc-700">
+                                <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mb-1.5 font-medium uppercase tracking-wide">Recent</div>
+                                <div className="flex gap-2">
+                                    {recentColors.map((color, idx) => (
+                                        <button
+                                            key={`recent-${idx}`}
+                                            onClick={() => {
+                                                editor.chain().focus().setColor(color).run();
+                                                addToRecentColors(color);
+                                                setShowColorPicker(false);
+                                            }}
+                                            title={color}
+                                            className="w-6 h-6 rounded-full transition-all duration-200 hover:scale-125 hover:ring-2 hover:ring-zinc-400 dark:hover:ring-zinc-500"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {/* Preset colors */}
                         <div className="flex gap-2">
                             {TEXT_COLORS.map((item) => (
                                 <button
@@ -203,6 +280,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
                                     onClick={() => {
                                         if (item.color) {
                                             editor.chain().focus().setColor(item.color).run();
+                                            addToRecentColors(item.color);
                                         } else {
                                             editor.chain().focus().unsetColor().run();
                                         }

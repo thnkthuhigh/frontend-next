@@ -11,6 +11,7 @@ import {
 import { Editor, Range } from "@tiptap/core";
 import { CommandItem } from "./suggestion";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     Sparkles,
     Type,
@@ -143,9 +144,16 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
 
         let globalIndex = 0;
 
+        // P2-004: Menu animation with stagger
         return (
-            <div className="w-64 max-h-80 overflow-y-auto rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl py-1">
-                {groupOrder.map((groupKey) => {
+            <motion.div
+                className="w-64 max-h-80 overflow-y-auto rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl py-1"
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+            >
+                {groupOrder.map((groupKey, groupIndex) => {
                     const groupItems = groupedItems[groupKey];
                     if (!groupItems || groupItems.length === 0) return null;
 
@@ -153,7 +161,16 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                     const isAI = groupKey === "ai";
 
                     return (
-                        <div key={groupKey}>
+                        <motion.div
+                            key={groupKey}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{
+                                duration: 0.2,
+                                delay: groupIndex * 0.05,
+                                ease: "easeOut"
+                            }}
+                        >
                             {/* Group Header - Minimal */}
                             <div className="px-3 pt-2 pb-1">
                                 <span className={cn(
@@ -164,15 +181,22 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                 </span>
                             </div>
 
-                            {/* Group Items */}
-                            {groupItems.map((item: CommandItem) => {
+                            {/* Group Items - Stagger animation */}
+                            {groupItems.map((item: CommandItem, itemIndex: number) => {
                                 const currentIndex = globalIndex++;
                                 const isSelected = currentIndex === selectedIndex;
 
                                 return (
-                                    <button
+                                    <motion.button
                                         key={item.title}
                                         onClick={() => selectItem(currentIndex)}
+                                        initial={{ opacity: 0, x: -8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{
+                                            duration: 0.15,
+                                            delay: (groupIndex * 0.05) + (itemIndex * 0.02),
+                                            ease: "easeOut"
+                                        }}
                                         className={cn(
                                             "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
                                             isSelected
@@ -182,9 +206,9 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                     >
                                         {/* Icon */}
                                         <div className={cn(
-                                            "w-7 h-7 flex items-center justify-center rounded border",
-                                            isSelected 
-                                                ? "border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800" 
+                                            "w-7 h-7 flex items-center justify-center rounded border transition-all",
+                                            isSelected
+                                                ? "border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 scale-105"
                                                 : "border-transparent bg-zinc-100 dark:bg-zinc-700/50"
                                         )}>
                                             {getIconComponent(item.icon, isAI)}
@@ -202,20 +226,25 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                                                 {item.description}
                                             </p>
                                         </div>
-                                    </button>
+                                    </motion.button>
                                 );
                             })}
-                        </div>
+                        </motion.div>
                     );
                 })}
 
                 {/* Footer - Minimal keyboard hint */}
-                <div className="px-3 py-1.5 mt-1 border-t border-zinc-200 dark:border-zinc-700">
+                <motion.div
+                    className="px-3 py-1.5 mt-1 border-t border-zinc-200 dark:border-zinc-700"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                >
                     <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center">
                         ↑↓ to navigate · ↵ to select
                     </p>
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
         );
     }
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState, useMemo } from "react";
+import { useEffect, useCallback, useRef, useState, useMemo, startTransition } from "react";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -43,6 +43,7 @@ import {
   Printer,
   ChevronDown,
   Type,
+  MoreHorizontal,
 } from "lucide-react";
 import { useDocumentStore } from "@/store/document-store";
 import { useEditorStore } from "@/store/editor-store";
@@ -83,14 +84,23 @@ function ToolbarButton({ onClick, isActive, disabled, children, title, shortcut 
       disabled={disabled}
       title={tooltipText}
       className={cn(
-        "p-1.5 rounded-lg transition-all duration-200 group relative",
+        "p-1.5 rounded-lg group relative",
+        // Smoother cubic-bezier transitions
+        "transition-all duration-200 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+        // Hover: slight scale up + background
+        "hover:scale-105",
+        // Press: scale down
+        "active:scale-95 active:duration-75",
         isActive
           ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 shadow-sm"
           : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100/80 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/60",
-        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent"
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:scale-100"
       )}
     >
-      {children}
+      {/* Icon with subtle transform on hover */}
+      <span className="block transition-transform duration-200 group-hover:scale-110">
+        {children}
+      </span>
     </button>
   );
 }
@@ -135,34 +145,62 @@ function TextTypeDropdown({ editor }: { editor: Editor }) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium",
-          "text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100/80",
-          "dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/60"
+          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium",
+          // Smooth cubic-bezier easing
+          "transition-all duration-200 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+          "hover:scale-[1.02]",
+          "active:scale-95 active:duration-75",
+          isOpen
+            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+            : "text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100/80 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/60"
         )}
         title="Text Type"
       >
-        <Type size={14} />
+        <Type size={14} className="transition-transform duration-200" />
         <span className="hidden sm:inline text-xs">{getCurrentType()}</span>
-        <ChevronDown size={12} className={cn("transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown
+          size={12}
+          className={cn(
+            "transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+            isOpen && "rotate-180"
+          )}
+        />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-36 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg z-50">
-          {options.map((option) => (
+        <div
+          className={cn(
+            "absolute top-full left-0 mt-1.5 w-40 py-1.5 rounded-xl",
+            "bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-700/50",
+            "shadow-2xl shadow-black/15 dark:shadow-black/40 z-[200]",
+            // Smoother entry animation with spring
+            "animate-in fade-in zoom-in-95 slide-in-from-top-1",
+            "duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          )}
+        >
+          {options.map((option, idx) => (
             <button
               key={option.label}
               onClick={() => {
                 option.action();
                 setIsOpen(false);
               }}
+              style={{ animationDelay: `${idx * 40}ms` }}
               className={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors",
+                "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm",
+                // Smooth cubic-bezier transitions
+                "transition-all duration-200 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+                "animate-in fade-in slide-in-from-left-2",
+                // Hover: subtle indent effect
+                "hover:pl-4",
                 getCurrentType() === option.label
-                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium pl-4"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-100"
               )}
             >
-              {option.icon}
+              <span className="transition-transform duration-200 group-hover:scale-110">
+                {option.icon}
+              </span>
               {option.label}
             </button>
           ))}
@@ -172,19 +210,52 @@ function TextTypeDropdown({ editor }: { editor: Editor }) {
   );
 }
 
-function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusModeChange }: {
+function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusModeChange, isCompact = false, hasTextSelection = false }: {
   editor: Editor | null;
   viewMode: "edit" | "preview";
   onViewModeChange: (mode: "edit" | "preview") => void;
   focusMode: boolean;
   onFocusModeChange: (mode: boolean) => void;
+  isCompact?: boolean;
+  hasTextSelection?: boolean;
 }) {
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   if (!editor) return null;
 
   return (
-    <div className="relative flex items-center justify-center px-6 py-4 overflow-visible">
-      {/* Floating Pill Toolbar - Glassmorphism Design */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-700/30 shadow-lg shadow-black/5 dark:shadow-black/20">
+    <div
+      className={cn(
+        "sticky top-0 z-[90] flex items-center justify-center overflow-visible",
+        "bg-background/80 backdrop-blur-md",
+        "transition-all duration-150 ease-out",
+        // Smart behavior: Reduce prominence when text is selected (FloatingToolbar shows)
+        hasTextSelection && "opacity-50 scale-[0.97]",
+        isCompact ? "px-4 py-1" : "px-6 py-2.5"
+      )}
+    >
+      {/* Floating Pill Toolbar */}
+      <div className={cn(
+        "flex items-center rounded-full",
+        "bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl",
+        "border border-zinc-200/60 dark:border-zinc-700/40",
+        "shadow-lg shadow-black/5 dark:shadow-black/20",
+        "transition-all duration-150 ease-out",
+        "hover:shadow-xl hover:shadow-black/8",
+        isCompact ? "gap-0.5 px-2 py-1" : "gap-0.5 px-4 py-2"
+      )}>
 
         {/* ===== SEGMENT 1: History ===== */}
         <div className="flex items-center gap-0.5">
@@ -257,98 +328,145 @@ function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusM
           </ToolbarButton>
         </div>
 
-        <ToolbarDivider />
+        {/* ===== SEGMENTS 4-6: Hidden in Compact Mode ===== */}
+        {!isCompact && (
+          <>
+            <ToolbarDivider />
 
-        {/* ===== SEGMENT 4: Alignment ===== */}
-        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
-            isActive={editor.isActive({ textAlign: "left" })}
-            title="Align Left"
-          >
-            <AlignLeft size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
-            isActive={editor.isActive({ textAlign: "center" })}
-            title="Align Center"
-          >
-            <AlignCenter size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setTextAlign("right").run()}
-            isActive={editor.isActive({ textAlign: "right" })}
-            title="Align Right"
-          >
-            <AlignRight size={16} />
-          </ToolbarButton>
-        </div>
+            {/* ===== SEGMENT 4: Alignment ===== */}
+            <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+                isActive={editor.isActive({ textAlign: "left" })}
+                title="Align Left"
+              >
+                <AlignLeft size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+                isActive={editor.isActive({ textAlign: "center" })}
+                title="Align Center"
+              >
+                <AlignCenter size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+                isActive={editor.isActive({ textAlign: "right" })}
+                title="Align Right"
+              >
+                <AlignRight size={16} />
+              </ToolbarButton>
+            </div>
 
-        <ToolbarDivider />
+            <ToolbarDivider />
 
-        {/* ===== SEGMENT 5: Lists & Blocks ===== */}
-        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            isActive={editor.isActive("bulletList")}
-            title="Bullet List"
-          >
-            <List size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            isActive={editor.isActive("orderedList")}
-            title="Numbered List"
-          >
-            <ListOrdered size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            isActive={editor.isActive("blockquote")}
-            title="Quote"
-          >
-            <Quote size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            isActive={editor.isActive("codeBlock")}
-            title="Code Block"
-          >
-            <Code size={16} />
-          </ToolbarButton>
-        </div>
+            {/* ===== SEGMENT 5: Lists & Blocks ===== */}
+            <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                isActive={editor.isActive("bulletList")}
+                title="Bullet List"
+              >
+                <List size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                isActive={editor.isActive("orderedList")}
+                title="Numbered List"
+              >
+                <ListOrdered size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                isActive={editor.isActive("blockquote")}
+                title="Quote"
+              >
+                <Quote size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                isActive={editor.isActive("codeBlock")}
+                title="Code Block"
+              >
+                <Code size={16} />
+              </ToolbarButton>
+            </div>
 
-        <ToolbarDivider />
+            <ToolbarDivider />
 
-        {/* ===== SEGMENT 6: Insert ===== */}
-        <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            title="Insert Table"
-          >
-            <TableIcon size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            title="Horizontal Rule"
-          >
-            <Minus size={16} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => {
-              const tocItems = extractTOC(editor.getJSON());
-              if (tocItems.length === 0) {
-                alert("Không có heading nào để tạo mục lục");
-                return;
-              }
-              const tocJson = generateTOCJson(tocItems);
-              editor.chain().focus().insertContentAt(0, tocJson.content || []).run();
-            }}
-            title="Insert Table of Contents"
-          >
-            <ListTodo size={16} />
-          </ToolbarButton>
-        </div>
+            {/* ===== SEGMENT 6: Insert ===== */}
+            <div className={cn("flex items-center gap-0.5", viewMode === "preview" && "opacity-30 pointer-events-none")}>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+                title="Insert Table"
+              >
+                <TableIcon size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                title="Horizontal Rule"
+              >
+                <Minus size={16} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => {
+                  const tocItems = extractTOC(editor.getJSON());
+                  if (tocItems.length === 0) {
+                    alert("Không có heading nào để tạo mục lục");
+                    return;
+                  }
+                  const tocJson = generateTOCJson(tocItems);
+                  editor.chain().focus().insertContentAt(0, tocJson.content || []).run();
+                }}
+                title="Insert Table of Contents"
+              >
+                <ListTodo size={16} />
+              </ToolbarButton>
+            </div>
+          </>
+        )}
+
+        {/* ===== MORE MENU (Compact Mode) ===== */}
+        {isCompact && (
+          <div ref={moreMenuRef} className="relative">
+            <ToolbarButton
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              title="More formatting options"
+            >
+              <MoreHorizontal size={16} />
+            </ToolbarButton>
+
+            {showMoreMenu && (
+              <div className={cn(
+                "absolute top-full right-0 mt-2 w-48 py-2 rounded-xl",
+                "bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-700/50",
+                "shadow-2xl shadow-black/15 dark:shadow-black/40 z-[300]",
+                "animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-200"
+              )}>
+                <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Căn chỉnh</p>
+                <div className="flex px-2 gap-0.5">
+                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("left").run()} title="Left"><AlignLeft size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("center").run()} title="Center"><AlignCenter size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("right").run()} title="Right"><AlignRight size={14} /></ToolbarButton>
+                </div>
+                <div className="my-1 border-t border-zinc-200/60 dark:border-zinc-700/40" />
+                <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Danh sách</p>
+                <div className="flex px-2 gap-0.5">
+                  <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullets"><List size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbers"><ListOrdered size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Quote"><Quote size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code"><Code size={14} /></ToolbarButton>
+                </div>
+                <div className="my-1 border-t border-zinc-200/60 dark:border-zinc-700/40" />
+                <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Chèn</p>
+                <div className="flex px-2 gap-0.5">
+                  <ToolbarButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Table"><TableIcon size={14} /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Line"><Minus size={14} /></ToolbarButton>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <ToolbarDivider />
 
@@ -382,14 +500,21 @@ function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusM
             </button>
           </div>
 
-          {/* Edit/Preview Toggle */}
-          <div className="flex items-center p-0.5 rounded-full bg-zinc-100/80 dark:bg-zinc-800/60">
+          {/* P0-007: Edit/Preview Toggle with animated sliding indicator */}
+          <div className="relative flex items-center p-0.5 rounded-full bg-zinc-100/80 dark:bg-zinc-800/60">
+            {/* Animated sliding background indicator */}
+            <div
+              className={cn(
+                "absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full bg-white dark:bg-zinc-700 shadow-sm transition-all duration-300 ease-out",
+                viewMode === "edit" ? "left-0.5" : "left-[calc(50%+1px)]"
+              )}
+            />
             <button
               onClick={() => onViewModeChange("edit")}
               className={cn(
-                "p-1.5 rounded-full transition-all",
+                "relative z-10 p-1.5 rounded-full transition-colors duration-200",
                 viewMode === "edit"
-                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
               title="Edit mode"
@@ -399,9 +524,9 @@ function EditorToolbar({ editor, viewMode, onViewModeChange, focusMode, onFocusM
             <button
               onClick={() => onViewModeChange("preview")}
               className={cn(
-                "p-1.5 rounded-full transition-all",
+                "relative z-10 p-1.5 rounded-full transition-colors duration-200",
                 viewMode === "preview"
-                  ? "bg-white dark:bg-zinc-700 text-foreground shadow-sm"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
               title="Preview mode"
@@ -437,9 +562,27 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
   const [showUnsplashSearch, setShowUnsplashSearch] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | undefined>();
   const [showSectionNav, setShowSectionNav] = useState(false); // Hidden - use Outline instead
+  const [isToolbarCompact, setIsToolbarCompact] = useState(false); // Smart toolbar compact mode
+  const [hasTextSelection, setHasTextSelection] = useState(false); // Track text selection for toolbar dimming
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // Ref for scrollable container
 
   // Keyboard shortcuts modal
   const { isOpen: showShortcutsModal, close: closeShortcutsModal } = useKeyboardShortcuts();
+
+  // Smart Toolbar: Compact on scroll - listen to scrollable container
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const scrollTop = scrollContainer.scrollTop;
+      // Compact when scrolled past 80px
+      setIsToolbarCompact(scrollTop > 80);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Handle section reordering from SectionNavigator
   const handleSectionReorder = useCallback((newContent: Record<string, unknown>) => {
@@ -521,10 +664,13 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     // Initialize from JSON (Single Source of Truth) or fall back to HTML (legacy)
     content: jsonContent || htmlContent || "",
     onUpdate: ({ editor }) => {
-      // Save JSON as Single Source of Truth
-      setJsonContent(editor.getJSON());
-      // Also save HTML for backward compatibility (export, preview)
-      setHtmlContent(editor.getHTML(), true);
+      // React 19 compatibility: Wrap state updates in startTransition to prevent flushSync conflicts
+      startTransition(() => {
+        // Save JSON as Single Source of Truth
+        setJsonContent(editor.getJSON());
+        // Also save HTML for backward compatibility (export, preview)
+        setHtmlContent(editor.getHTML(), true);
+      });
     },
     editorProps: {
       attributes: {
@@ -539,19 +685,39 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     return () => setEditor(null);
   }, [editor, setEditor]);
 
-  // Focus Mode: Track editor focus state for sidebar opacity transitions
+  // P0-004: Improved Focus Mode - Track editor focus state for sidebar opacity transitions
+  // Uses smarter blur detection to prevent flicker when clicking toolbar/sidebar
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (!editor) return;
 
     const handleFocus = () => {
-      setEditorFocused(true);
+      // Clear any pending blur timeout
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
+      queueMicrotask(() => setEditorFocused(true));
     };
 
     const handleBlur = () => {
-      // Add a small delay before unfocusing to prevent flicker
-      setTimeout(() => {
-        setEditorFocused(false);
-      }, 150);
+      // Use longer delay (300ms) and check if focus moved to related UI element
+      blurTimeoutRef.current = setTimeout(() => {
+        // Check if focus is still within editor ecosystem (toolbar, sidebar, AI panel)
+        const activeElement = document.activeElement;
+        const editorEcosystem = document.querySelector('[data-editor-ecosystem]');
+        const isWithinEcosystem = editorEcosystem?.contains(activeElement);
+
+        // Also check for floating toolbar and modal dialogs
+        const floatingToolbar = document.querySelector('[data-floating-toolbar]');
+        const isInToolbar = floatingToolbar?.contains(activeElement);
+
+        // Only unfocus if truly leaving the editor area
+        if (!isWithinEcosystem && !isInToolbar) {
+          queueMicrotask(() => setEditorFocused(false));
+        }
+      }, 300);
     };
 
     editor.on("focus", handleFocus);
@@ -560,13 +726,32 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
     return () => {
       editor.off("focus", handleFocus);
       editor.off("blur", handleBlur);
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
     };
   }, [editor, setEditorFocused]);
+
+  // Smart Toolbar: Track text selection to dim main toolbar when FloatingToolbar shows
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleSelectionUpdate = () => {
+      const { from, to } = editor.state.selection;
+      const hasSelection = from !== to && !editor.state.selection.empty;
+      queueMicrotask(() => setHasTextSelection(hasSelection));
+    };
+
+    editor.on("selectionUpdate", handleSelectionUpdate);
+    return () => {
+      editor.off("selectionUpdate", handleSelectionUpdate);
+    };
+  }, [editor]);
 
   // Listen for Unsplash image search event from SlashCommand
   useEffect(() => {
     const handleUnsplashEvent = () => {
-      setShowUnsplashSearch(true);
+      queueMicrotask(() => setShowUnsplashSearch(true));
     };
 
     window.addEventListener("slash-unsplash-image", handleUnsplashEvent);
@@ -605,11 +790,17 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
       const currentJson = JSON.stringify(editor.getJSON());
       const storeJson = JSON.stringify(jsonContent);
       if (currentJson !== storeJson) {
-        editor.commands.setContent(jsonContent);
+        // React 19 compatibility: Wrap setContent in startTransition
+        startTransition(() => {
+          editor.commands.setContent(jsonContent);
+        });
       }
     } else if (htmlContent && htmlContent !== editor.getHTML()) {
       // Fallback to HTML for legacy documents
-      editor.commands.setContent(htmlContent);
+      // React 19 compatibility: Wrap setContent in startTransition
+      startTransition(() => {
+        editor.commands.setContent(htmlContent);
+      });
     }
   }, [jsonContent, htmlContent, editor]);
 
@@ -663,6 +854,7 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
         onViewModeChange={setViewMode}
         focusMode={focusMode}
         onFocusModeChange={setFocusMode}
+        isCompact={isToolbarCompact}
       />
 
       {/* Main Content Area with Section Navigator */}
@@ -678,15 +870,28 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
         )}
 
         {/* Scrollable Document View - Focus Mode vs Print Mode */}
-        <div className={cn(
-          "flex-1 overflow-auto transition-all duration-300",
-          focusMode
-            ? "bg-background" // Clean background for focus
-            : "bg-slate-100 dark:bg-zinc-950 pt-12 pb-20" // Cool gray paper background
-        )}>
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "flex-1 overflow-auto transition-all duration-150 relative",
+            focusMode
+              ? "bg-zinc-50/30 dark:bg-zinc-900/20" // Subtle background for focus mode
+              : "bg-slate-100 dark:bg-zinc-950 pt-12 pb-20" // Cool gray paper background
+          )}
+        >
+          {/* Focus Mode Indicator - Subtle, corner badge */}
+          {focusMode && (
+            <div className="fixed top-20 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-100/90 dark:bg-zinc-800/90 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm">
+              <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Focus Mode
+              </span>
+            </div>
+          )}
+          
           {focusMode ? (
             /* ===== FOCUS MODE - Continuous scroll, no page breaks ===== */
-            <div className="max-w-3xl mx-auto px-10 py-16">
+            <div className="max-w-[720px] mx-auto px-12 py-16">{/* Slightly wider for comfort */}
               {/* Optional Title Block */}
               {(title || subtitle) && (
                 <div className="mb-12 pb-8 border-b border-border">
@@ -728,15 +933,13 @@ export function DocumentEditor({ onPrint }: DocumentEditorProps) {
             <div className="flex flex-col items-center gap-12 px-4 mt-10">
               {/* Cover Page */}
               <div
-                className="bg-white dark:bg-zinc-900 document-page transition-all duration-500"
+                className="bg-white dark:bg-zinc-900 document-page transition-all duration-500 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.4),0_0_1px_rgba(255,255,255,0.1),inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                 style={{
                   width: `${A4_WIDTH_MM}mm`,
                   minHeight: `297mm`,
                   padding: `${A4_MARGIN_MM + 10}mm`,
                   fontFamily: styleConfig.fontFamily,
                   boxSizing: 'border-box',
-                  /* Multi-layer shadow for floating effect */
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.02)',
                 }}
               >
                 <div

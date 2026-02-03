@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+// P2-006: Real-time email validation
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +26,13 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // P2-006: Real-time validation states
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  
+  const emailValid = useMemo(() => isValidEmail(email), [email]);
+  const passwordValid = useMemo(() => password.length >= 6, [password]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,34 +141,88 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Email Login Form */}
+            {/* Email Login Form - P2-006: Real-time validation */}
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Email</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Email</span>
+                  {emailTouched && email && (
+                    <span className={cn(
+                      "text-xs flex items-center gap-1 transition-colors",
+                      emailValid ? "text-green-400" : "text-red-400"
+                    )}>
+                      {emailValid ? (
+                        <><CheckCircle2 size={12} /> Valid</>
+                      ) : (
+                        <><XCircle size={12} /> Invalid email</>
+                      )}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <Mail className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    emailTouched && email
+                      ? emailValid ? "text-green-400" : "text-red-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouched(true)}
                     placeholder="you@example.com"
                     required
-                    className="h-12 pl-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      emailTouched && email
+                        ? emailValid
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-red-500/50 hover:border-red-500/70 focus:border-red-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white/60">Password</label>
+                <label className="text-sm font-medium text-white/60 flex items-center justify-between">
+                  <span>Password</span>
+                  {passwordTouched && password && (
+                    <span className={cn(
+                      "text-xs flex items-center gap-1 transition-colors",
+                      passwordValid ? "text-green-400" : "text-amber-400"
+                    )}>
+                      {passwordValid ? (
+                        <><CheckCircle2 size={12} /> Strong</>
+                      ) : (
+                        <><XCircle size={12} /> Min 6 chars</>
+                      )}
+                    </span>
+                  )}
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <Lock className={cn(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+                    passwordTouched && password
+                      ? passwordValid ? "text-green-400" : "text-amber-400"
+                      : "text-white/30"
+                  )} />
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setPasswordTouched(true)}
                     placeholder="••••••••"
                     required
-                    className="h-12 pl-10 pr-10 bg-white/5 border-white/10 hover:border-white/20 focus:border-blue-500/50 rounded-xl text-white placeholder:text-white/30"
+                    className={cn(
+                      "h-12 pl-10 pr-10 bg-white/5 rounded-xl text-white placeholder:text-white/30 transition-colors",
+                      passwordTouched && password
+                        ? passwordValid
+                          ? "border-green-500/50 hover:border-green-500/70 focus:border-green-500"
+                          : "border-amber-500/50 hover:border-amber-500/70 focus:border-amber-500"
+                        : "border-white/10 hover:border-white/20 focus:border-blue-500/50"
+                    )}
                   />
                   <button
                     type="button"

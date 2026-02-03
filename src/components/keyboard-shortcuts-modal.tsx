@@ -114,13 +114,18 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
-                {Object.entries(groupedShortcuts).map(([category, shortcuts]) => (
+              <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+                {Object.entries(groupedShortcuts).map(([category, shortcuts], catIndex) => (
                   <div key={category}>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    {/* P2-001: Visual divider between sections */}
+                    {catIndex > 0 && (
+                      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 -mt-1" />
+                    )}
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-amber-500" />
                       {category}
                     </h3>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {shortcuts.map((shortcut, index) => (
                         <motion.div
                           key={index}

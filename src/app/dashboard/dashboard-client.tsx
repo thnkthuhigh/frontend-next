@@ -261,7 +261,7 @@ export function DashboardClient({ user, initialDocuments }: DashboardClientProps
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: index * 0.03, duration: 0.3 }}
                 whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className="group relative bg-card hover:bg-card-hover border border-border hover:border-amber-500/30 rounded-2xl p-5 cursor-pointer hover:shadow-lg hover:shadow-amber-500/5"
+                className="group relative bg-card hover:bg-card-hover border border-border hover:border-amber-500/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10"
                 onClick={() => handleOpenDocument(doc.id)}
               >
                 {/* Document Icon */}

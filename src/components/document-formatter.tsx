@@ -27,6 +27,8 @@ import {
   PanelRightOpen,
   StopCircle,
   MessageSquarePlus,
+  Menu,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -88,9 +90,20 @@ export function DocumentFormatter({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiPanelOpen, setAiPanelOpen] = useState(false); // AI Side Panel state
   const [abortController, setAbortController] = useState<AbortController | null>(null);
-  
+
+  // P2-014: Mobile nav state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // P2-015: Scroll progress state
+  const [scrollProgress, setScrollProgress] = useState(0);
+
   // Get editor focus state from store for Focus Mode (fade sidebars when typing)
-  const { isEditorFocused } = useEditorStore();
+  const { isEditorFocused, setAIPanelOpen } = useEditorStore();
+
+  // P1-011: Sync local aiPanelOpen state with global store for toast positioning
+  useEffect(() => {
+    setAIPanelOpen(aiPanelOpen);
+  }, [aiPanelOpen, setAIPanelOpen]);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastLineCountRef = useRef<number>(0);
 
@@ -100,22 +113,22 @@ export function DocumentFormatter({
       setDisplayedText("");
       return;
     }
-    
+
     // Clear previous interval
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
     }
-    
+
     // If displayed text is behind, animate to catch up
     if (displayedText.length < streamingDisplay.length) {
       const charsToAdd = streamingDisplay.length - displayedText.length;
       const charsPerTick = Math.max(1, Math.ceil(charsToAdd / 10)); // Faster for longer gaps
-      
+
       typingIntervalRef.current = setInterval(() => {
         setDisplayedText(prev => {
           const nextLength = Math.min(prev.length + charsPerTick, streamingDisplay.length);
           const newText = streamingDisplay.substring(0, nextLength);
-          
+
           if (nextLength >= streamingDisplay.length) {
             if (typingIntervalRef.current) {
               clearInterval(typingIntervalRef.current);
@@ -125,7 +138,7 @@ export function DocumentFormatter({
         });
       }, 20); // 20ms per tick = smooth animation
     }
-    
+
     return () => {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
@@ -139,15 +152,15 @@ export function DocumentFormatter({
     const contentMatches = jsonText.match(/"content"\s*:\s*"([^"]+)"/g);
     const textMatches = jsonText.match(/"text"\s*:\s*"([^"]+)"/g);
     const titleMatch = jsonText.match(/"title"\s*:\s*"([^"]+)"/);
-    
+
     let display = "";
-    
+
     if (titleMatch) {
       // Decode escape sequences
       const title = titleMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
       display += `📄 ${title}\n\n`;
     }
-    
+
     const allMatches = [...(contentMatches || []), ...(textMatches || [])];
     allMatches.forEach(match => {
       const value = match.match(/"(?:content|text)"\s*:\s*"([^"]+)"/);
@@ -157,7 +170,7 @@ export function DocumentFormatter({
         display += decoded + "\n";
       }
     });
-    
+
     return display || "Đang phân tích cấu trúc văn bản...";
   }, []);
 
@@ -167,6 +180,33 @@ export function DocumentFormatter({
       setViewMode(initialViewMode);
     }
   }, [initialViewMode]);
+
+  // P2-015: Track scroll progress for the header indicator
+  useEffect(() => {
+    const editorContainer = document.querySelector('[data-editor-ecosystem]');
+    if (!editorContainer) return;
+
+    const handleScroll = () => {
+      const scrollableElement = editorContainer.querySelector('.overflow-y-auto');
+      if (!scrollableElement) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = scrollableElement;
+      const maxScroll = scrollHeight - clientHeight;
+      if (maxScroll <= 0) {
+        setScrollProgress(0);
+        return;
+      }
+      const progress = Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100));
+      setScrollProgress(progress);
+    };
+
+    const scrollableElement = editorContainer.querySelector('.overflow-y-auto');
+    scrollableElement?.addEventListener('scroll', handleScroll);
+
+    return () => {
+      scrollableElement?.removeEventListener('scroll', handleScroll);
+    };
+  }, [viewMode]);
 
   // Check auth state on mount
   useEffect(() => {
@@ -217,24 +257,24 @@ export function DocumentFormatter({
   // Update editor content based on displayed text (with typing animation)
   useEffect(() => {
     if (!displayedText) return;
-    
+
     const lines = displayedText.split('\n').filter(l => l.trim());
     if (lines.length === 0) return;
-    
+
     const streamContent = lines.map(line => ({
       type: "paragraph",
       content: line ? [{ type: "text", text: line }] : []
     }));
-    
+
     // Only update during processing (not after final content is set)
     if (isProcessing) {
       setJsonContent({ type: "doc", content: streamContent });
     }
-    
+
     // Only scroll when a new line is added (not every character)
     if (lines.length > lastLineCountRef.current && isProcessing) {
       lastLineCountRef.current = lines.length;
-      
+
       requestAnimationFrame(() => {
         const proseMirror = document.querySelector('.ProseMirror');
         if (proseMirror) {
@@ -270,10 +310,10 @@ export function DocumentFormatter({
     setStreamingDisplay("");
     setDisplayedText("");
     lastLineCountRef.current = 0;
-    
+
     // Switch to editor view immediately to show streaming in editor
     setViewMode("editor");
-    
+
     // Set initial placeholder content in editor
     setJsonContent({
       type: "doc",
@@ -288,7 +328,7 @@ export function DocumentFormatter({
     // Create new AbortController
     const controller = new AbortController();
     setAbortController(controller);
-    
+
     let lastContent: any = null; // Store last valid content for stop functionality
 
     try {
@@ -300,11 +340,11 @@ export function DocumentFormatter({
         (chunk) => {
           fullText += chunk;
           setStreamingText(fullText);
-          
+
           // Try to parse partial JSON and update editor in real-time
           const readable = extractReadableText(fullText);
           setStreamingDisplay(readable);
-          
+
           // Update streaming display - typing animation useEffect will update editor
           // Don't call setJsonContent directly here to avoid jerky updates
         },
@@ -344,7 +384,7 @@ export function DocumentFormatter({
       // Convert elements to Tiptap JSON format
       const tiptapContent = result.elements.map((el: any) => {
         const content = decodeText(el.content || "");
-        
+
         if (el.type === "heading1") {
           return { type: "heading", attrs: { level: 1 }, content: content ? [{ type: "text", text: content }] : [] };
         } else if (el.type === "heading2") {
@@ -783,8 +823,8 @@ export function DocumentFormatter({
                           disabled={!rawContent.trim() && !isProcessing}
                           className={cn(
                             "group relative px-8 py-3 rounded-xl font-semibold transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed mobile-w-full mobile-px-4 mobile-py-2.5",
-                            isProcessing 
-                              ? "bg-red-500 hover:bg-red-600 text-white" 
+                            isProcessing
+                              ? "bg-red-500 hover:bg-red-600 text-white"
                               : "bg-amber-500 hover:bg-amber-400 text-zinc-900 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
                           )}
                           data-action="generate"
@@ -832,9 +872,22 @@ export function DocumentFormatter({
       <div className="h-screen flex flex-col overflow-hidden bg-background">
         {/* Minimal Clean Header */}
         <header className="h-12 shrink-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm mobile:h-14">
+          {/* P2-015: Scroll Progress Indicator */}
+          <div
+            className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-150 z-10"
+            style={{ width: `${scrollProgress}%` }}
+          />
           <div className="h-full flex items-center justify-between px-4 mobile:px-3">
+            {/* P2-014: Mobile hamburger menu */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="hidden mobile:flex p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
             {/* Left Section - Breadcrumb Style */}
-            <div className="flex items-center gap-3 mobile:gap-2">
+            <div className="flex items-center gap-3 mobile:gap-2 mobile:hidden">
               {/* Back button */}
               {documentId ? (
                 <Link
@@ -857,13 +910,35 @@ export function DocumentFormatter({
               {/* Breadcrumb separator */}
               <ChevronRight size={14} className="text-muted-foreground/50 mobile:hidden" />
 
-              {/* Document Title - Inline editable */}
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="h-8 min-w-[180px] w-auto bg-transparent border-none hover:bg-muted/50 focus:bg-muted focus:ring-0 transition-all font-medium text-sm text-foreground placeholder:text-muted-foreground rounded px-2"
-                placeholder="Untitled Document"
-              />
+              {/* P0-008: Document Title - Enhanced with validation, character limit and focus styling */}
+              <div className="relative group">
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value.slice(0, 100))}
+                  className={cn(
+                    "h-8 min-w-[180px] max-w-[280px] w-auto bg-transparent border-none hover:bg-muted/50 transition-all font-medium text-sm text-foreground placeholder:text-muted-foreground rounded px-2",
+                    "focus:bg-muted focus:ring-2 focus:ring-amber-500/30 focus:ring-offset-0",
+                    !title.trim() && "border border-yellow-400/50 bg-yellow-50/50 dark:bg-yellow-900/10"
+                  )}
+                  placeholder="Untitled Document"
+                  maxLength={100}
+                />
+                {/* Character counter - shows when approaching limit */}
+                {title.length > 70 && (
+                  <span className={cn(
+                    "absolute -bottom-5 right-0 text-[9px] transition-opacity",
+                    title.length > 90 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/60"
+                  )}>
+                    {title.length}/100
+                  </span>
+                )}
+                {/* Empty title warning tooltip */}
+                {!title.trim() && (
+                  <span className="absolute -bottom-5 left-0 text-[9px] text-yellow-600 dark:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Add a title
+                  </span>
+                )}
+              </div>
 
               {/* Save Status - Minimal */}
               {documentId && saveStatus && (
@@ -910,7 +985,7 @@ export function DocumentFormatter({
 
               {/* Theme Toggle - Minimal */}
               <ThemeToggle />
-              
+
               {/* Sidebar Toggle - Hover only icon */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -931,60 +1006,86 @@ export function DocumentFormatter({
                 isExporting={isExporting}
                 isProcessing={isProcessing}
                 exportProgress={exportProgress}
+                onCancelExport={() => {
+                  // P1-005: Cancel export - reset states and abort if possible
+                  abortController?.abort();
+                  setIsExporting(false);
+                  setIsProcessing(false);
+                  setExportProgress(0);
+                }}
               />
             </div>
           </div>
         </header>
 
-        {/* Main Workspace */}
-        <div className="flex-1 flex overflow-hidden mobile:flex-col">
-          {/* Minimalist Left Sidebar - Navigation Rail Style with Focus Mode */}
+        {/* Main Workspace - P0-001: Added data-editor-ecosystem for focus detection */}
+        <div className="flex-1 flex overflow-hidden mobile:flex-col" data-editor-ecosystem>
+          {/* Minimalist Left Sidebar - QUIET Sidebar Design */}
+          {/* P0-001: Reduced opacity, narrower width for quieter feel */}
           <div className={cn(
-            "flex flex-col overflow-hidden relative mobile:w-full mobile:h-12 mobile:flex-row mobile:border-b mobile:border-border mobile-sidebar-hidden transition-all duration-300 ease-in-out bg-transparent group/sidebar",
-            sidebarOpen ? "w-64" : "w-0 opacity-0",
-            // Focus Mode: Fade sidebar when editor is focused, show on hover
-            sidebarOpen && isEditorFocused ? "opacity-50 hover:opacity-100" : "opacity-100"
+            "flex flex-col overflow-hidden relative mobile:w-full mobile:h-12 mobile:flex-row mobile:border-b mobile:border-border mobile-sidebar-hidden",
+            // Smooth transitions 150ms
+            "transition-all duration-150 ease-out",
+            // Lighter background - "lùi lại 1 bước thị giác"
+            "bg-zinc-50/50 dark:bg-zinc-900/30",
+            // Narrower width: 208px instead of 256px
+            sidebarOpen ? "w-52" : "w-0 opacity-0",
+            // P0-001: Focus Mode - Fade sidebar to 40%, smoother transition
+            sidebarOpen && isEditorFocused ? "opacity-40 hover:opacity-100" : "opacity-100"
           )}>
-            {/* Minimal border only */}
-            <div className="absolute inset-y-0 right-0 w-px bg-border mobile:hidden" />
+            {/* Thin subtle border */}
+            <div className="absolute inset-y-0 right-0 w-px bg-zinc-200/50 dark:bg-zinc-800/50 mobile:hidden" />
 
-            {/* Sidebar Tab Headers - 3 main tabs */}
-            <div className="relative flex shrink-0 mobile:w-full border-b border-border bg-muted/30">
+            {/* Sidebar Tab Headers - Icon-only for compact width */}
+            <div className="relative flex shrink-0 mobile:w-full border-b border-zinc-200/50 dark:border-zinc-800/50 bg-transparent">
               <button
                 onClick={() => setSidebarTab("structure")}
                 className={cn(
-                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
+                  "flex-1 py-3 text-xs font-medium transition-all flex items-center justify-center relative",
+                  "hover:bg-zinc-100/50 dark:hover:bg-zinc-800/30",
                   sidebarTab === "structure"
-                    ? "text-foreground bg-background border-b-2 border-amber-500"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100/80 dark:bg-zinc-800/60"
+                    : "text-zinc-400 dark:text-zinc-500"
                 )}
+                title="Outline"
               >
-                <LayoutList size={14} />
-                <span>Outline</span>
+                <LayoutList size={16} />
+                {/* Active indicator */}
+                {sidebarTab === "structure" && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-500 rounded-full" />
+                )}
               </button>
               <button
                 onClick={() => setSidebarTab("theme")}
                 className={cn(
-                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
+                  "flex-1 py-3 text-xs font-medium transition-all flex items-center justify-center relative",
+                  "hover:bg-zinc-100/50 dark:hover:bg-zinc-800/30",
                   sidebarTab === "theme"
-                    ? "text-foreground bg-background border-b-2 border-amber-500"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100/80 dark:bg-zinc-800/60"
+                    : "text-zinc-400 dark:text-zinc-500"
                 )}
+                title="Style"
               >
-                <Palette size={14} />
-                <span>Style</span>
+                <Palette size={16} />
+                {sidebarTab === "theme" && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-500 rounded-full" />
+                )}
               </button>
               <button
                 onClick={() => setSidebarTab("history")}
                 className={cn(
-                  "flex-1 px-4 py-3 text-xs font-medium transition-all flex items-center justify-center gap-2 relative",
+                  "flex-1 py-3 text-xs font-medium transition-all flex items-center justify-center relative",
+                  "hover:bg-zinc-100/50 dark:hover:bg-zinc-800/30",
                   sidebarTab === "history"
-                    ? "text-foreground bg-background border-b-2 border-amber-500"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100/80 dark:bg-zinc-800/60"
+                    : "text-zinc-400 dark:text-zinc-500"
                 )}
+                title="History"
               >
-                <History size={14} />
-                <span>History</span>
+                <History size={16} />
+                {sidebarTab === "history" && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-500 rounded-full" />
+                )}
               </button>
             </div>
 
@@ -1090,7 +1191,7 @@ export function DocumentFormatter({
 
           {/* Center Canvas - Premium Editor Area with smooth center transition */}
           <div className={cn(
-            "flex-1 relative overflow-hidden flex flex-col mobile:w-full transition-all duration-300 ease-in-out",
+            "flex-1 relative overflow-hidden flex flex-col mobile:w-full transition-all duration-150 ease-out",
             !sidebarOpen && "mx-auto max-w-5xl" // Center when sidebar closed
           )}>
             {/* Subtle Grid Background */}
@@ -1127,7 +1228,7 @@ export function DocumentFormatter({
                 <>
                   {/* Overlay to block clicks */}
                   <div className="absolute inset-0 z-20 bg-transparent" />
-                  
+
                   {/* Top status bar */}
                   <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-3 flex items-center justify-between shadow-lg">
                     <div className="flex items-center gap-3">
@@ -1140,7 +1241,7 @@ export function DocumentFormatter({
                         <p className="text-xs text-white/70">Nội dung sẽ hiển thị bên dưới khi được sinh ra</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={handleStop}
                       className="px-4 py-2 text-sm font-semibold bg-white text-purple-600 hover:bg-white/90 rounded-lg transition-colors flex items-center gap-2 shadow-md"
                     >
@@ -1148,14 +1249,14 @@ export function DocumentFormatter({
                       Dừng & Giữ nội dung
                     </button>
                   </div>
-                  
+
                   {/* Progress indicator at bottom */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
                     <div className="bg-card/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-border flex items-center gap-2">
                       <div className="flex gap-1">
-                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '0ms'}} />
-                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '150ms'}} />
-                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '300ms'}} />
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                       <span className="text-xs text-muted-foreground">Đang sinh nội dung với Vertex AI</span>
                     </div>

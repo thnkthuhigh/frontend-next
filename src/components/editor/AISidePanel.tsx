@@ -48,28 +48,28 @@ interface Message {
     action?: string;
 }
 
-// Quick action categories
+// Quick action categories - Vietnamese labels
 const AI_ACTIONS = {
     writing: [
-        { id: "continue", label: "Continue writing", icon: ChevronRight, prompt: "Continue writing this text naturally, maintaining the same tone and style." },
-        { id: "improve", label: "Improve text", icon: Wand2, prompt: "Improve and enhance this text while keeping the meaning." },
-        { id: "expand", label: "Expand", icon: Expand, prompt: "Expand this text with more details and examples." },
+        { id: "continue", label: "Viết tiếp", icon: ChevronRight, prompt: "Continue writing this text naturally, maintaining the same tone and style." },
+        { id: "improve", label: "Cải thiện văn bản", icon: Wand2, prompt: "Improve and enhance this text while keeping the meaning." },
+        { id: "expand", label: "Mở rộng", icon: Expand, prompt: "Expand this text with more details and examples." },
     ],
     transform: [
-        { id: "summarize", label: "Summarize", icon: FileText, prompt: "Summarize this text concisely, capturing the key points." },
-        { id: "grammar", label: "Fix grammar", icon: SpellCheck, prompt: "Fix any grammar and spelling errors in this text." },
+        { id: "summarize", label: "Tóm tắt", icon: FileText, prompt: "Summarize this text concisely, capturing the key points." },
+        { id: "grammar", label: "Sửa ngữ pháp", icon: SpellCheck, prompt: "Fix any grammar and spelling errors in this text." },
     ],
     style: [
-        { id: "professional", label: "Professional", style: "professional" as RewriteStyle },
-        { id: "casual", label: "Casual", style: "casual" as RewriteStyle },
-        { id: "academic", label: "Academic", style: "academic" as RewriteStyle },
-        { id: "creative", label: "Creative", style: "creative" as RewriteStyle },
+        { id: "professional", label: "Chuyên nghiệp", style: "professional" as RewriteStyle },
+        { id: "casual", label: "Thân mật", style: "casual" as RewriteStyle },
+        { id: "academic", label: "Học thuật", style: "academic" as RewriteStyle },
+        { id: "creative", label: "Sáng tạo", style: "creative" as RewriteStyle },
     ],
     translate: [
-        { id: "vi", label: "Vietnamese", lang: "vi" as TranslateLanguage },
-        { id: "en", label: "English", lang: "en" as TranslateLanguage },
-        { id: "fr", label: "French", lang: "fr" as TranslateLanguage },
-        { id: "ja", label: "Japanese", lang: "ja" as TranslateLanguage },
+        { id: "vi", label: "Tiếng Việt", lang: "vi" as TranslateLanguage },
+        { id: "en", label: "Tiếng Anh", lang: "en" as TranslateLanguage },
+        { id: "fr", label: "Tiếng Pháp", lang: "fr" as TranslateLanguage },
+        { id: "ja", label: "Tiếng Nhật", lang: "ja" as TranslateLanguage },
     ],
 };
 
@@ -82,6 +82,8 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
     const [hasSelection, setHasSelection] = useState(false);
     // Tab state for horizontal tabs - MUST be at top level with other hooks
     const [activeTab, setActiveTab] = useState<"writing" | "transform" | "style" | "translate">("writing");
+    // P1-002: Track which action button is currently processing
+    const [processingAction, setProcessingAction] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -100,15 +102,15 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
     // Track selection changes
     useEffect(() => {
         if (!editor) return;
-        
+
         const updateSelection = () => {
             const { from, to } = editor.state.selection;
             setHasSelection(from !== to);
         };
-        
+
         updateSelection();
         editor.on('selectionUpdate', updateSelection);
-        
+
         return () => {
             editor.off('selectionUpdate', updateSelection);
         };
@@ -144,7 +146,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
     // Apply AI result to editor
     const applyToEditor = useCallback((text: string) => {
         if (!editor) return;
-        
+
         const { from, to } = editor.state.selection;
         if (from === to) {
             // Insert at cursor
@@ -183,7 +185,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         }
     }, [editor, getSelectedText, addMessage]);
 
-    // Handle quick actions
+    // Handle quick actions - P1-002: Track which specific action is processing
     const handleQuickAction = useCallback(async (actionType: string, actionId: string) => {
         if (!editor) return;
 
@@ -194,6 +196,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         }
 
         setIsProcessing(true);
+        setProcessingAction(`${actionType}-${actionId}`); // P1-002: Track specific action
 
         try {
             let actionLabel = "";
@@ -251,6 +254,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
             addMessage("assistant", "An error occurred. Please try again.");
         } finally {
             setIsProcessing(false);
+            setProcessingAction(null); // P1-002: Clear processing action
         }
     }, [editor, getSelectedText, addMessage]);
 
@@ -278,7 +282,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
         <div className="border-b border-border/50">
             <button
                 onClick={() => setExpandedSection(expandedSection === id ? null : id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-all duration-150"
             >
                 <span className="flex items-center gap-2">
                     <Icon size={14} className="text-amber-500" />
@@ -287,14 +291,14 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                 <ChevronDown
                     size={14}
                     className={cn(
-                        "text-muted-foreground transition-transform duration-200",
+                        "text-muted-foreground transition-transform duration-150",
                         expandedSection === id && "rotate-180"
                     )}
                 />
             </button>
             <div
                 className={cn(
-                    "grid transition-all duration-200 ease-in-out",
+                    "grid transition-all duration-150 ease-out",
                     expandedSection === id ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                 )}
             >
@@ -312,10 +316,10 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
     return (
         <div
             className={cn(
-                "h-full bg-background border-l border-border flex flex-col overflow-hidden transition-all duration-300 ease-in-out group/aipanel",
+                "h-full bg-background border-l border-border flex flex-col overflow-hidden transition-all duration-150 ease-out group/aipanel",
                 isOpen ? "w-80" : "w-0",
-                // Focus Mode: Fade AI panel when editor is focused, show on hover
-                isOpen && isEditorFocused ? "opacity-50 hover:opacity-100" : "opacity-100"
+                // Focus Mode - Fade to 40% for better readability
+                isOpen && isEditorFocused ? "opacity-40 hover:opacity-100 transition-opacity duration-150" : "opacity-100"
             )}
         >
             {/* Header */}
@@ -335,91 +339,129 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                 </button>
             </div>
 
-            {/* Horizontal Tabs for AI Actions */}
+            {/* P0-002: Horizontal Tabs for AI Actions - Enhanced with animated underline indicator */}
             {hasSelection && (
                 <div className="flex-shrink-0 border-b border-border">
-                    {/* Tab Headers */}
-                    <div className="flex px-2 pt-2 gap-1 overflow-x-auto">
+                    {/* Tab Headers - P0-002: Added relative positioning for underline */}
+                    <div className="relative flex px-2 pt-2 gap-1 overflow-x-auto">
                         {[
-                            { id: "writing" as const, label: "Writing", icon: Wand2 },
-                            { id: "transform" as const, label: "Transform", icon: FileText },
-                            { id: "style" as const, label: "Rewrite Style", icon: Wand2 },
-                            { id: "translate" as const, label: "Translate", icon: Languages },
+                            { id: "writing" as const, label: "Viết", icon: Wand2 },
+                            { id: "transform" as const, label: "Biến đổi", icon: FileText },
+                            { id: "style" as const, label: "Văn phong", icon: Wand2 },
+                            { id: "translate" as const, label: "Dịch", icon: Languages },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={cn(
-                                    "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-all whitespace-nowrap",
+                                    "relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all whitespace-nowrap",
                                     activeTab === tab.id
-                                        ? "bg-background border border-b-0 border-border text-amber-600 dark:text-amber-400"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                        ? "text-amber-600 dark:text-amber-400"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-t-lg"
                                 )}
                             >
                                 <tab.icon size={12} />
                                 {tab.label}
+                                {/* P0-002: Animated underline indicator for active tab */}
+                                {activeTab === tab.id && (
+                                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-amber-500 rounded-full animate-in slide-in-from-left-2 duration-200" />
+                                )}
                             </button>
                         ))}
                     </div>
-                    
-                    {/* Tab Content */}
+
+                    {/* Tab Content - P1-002: Per-button loading states */}
                     <div className="p-3 bg-background/50">
                         {activeTab === "writing" && (
                             <div className="flex flex-wrap gap-1.5">
-                                {AI_ACTIONS.writing.map(action => (
-                                    <button
-                                        key={action.id}
-                                        onClick={() => handleQuickAction("writing", action.id)}
-                                        disabled={isProcessing}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm"
-                                    >
-                                        <action.icon size={12} />
-                                        {action.label}
-                                    </button>
-                                ))}
+                                {AI_ACTIONS.writing.map(action => {
+                                    const isThisProcessing = processingAction === `writing-${action.id}`;
+                                    return (
+                                        <button
+                                            key={action.id}
+                                            onClick={() => handleQuickAction("writing", action.id)}
+                                            disabled={isProcessing}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm",
+                                                isThisProcessing && "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                            )}
+                                        >
+                                            {isThisProcessing ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                            ) : (
+                                                <action.icon size={12} />
+                                            )}
+                                            {action.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                         {activeTab === "transform" && (
                             <div className="flex flex-wrap gap-1.5">
-                                {AI_ACTIONS.transform.map(action => (
-                                    <button
-                                        key={action.id}
-                                        onClick={() => handleQuickAction("transform", action.id)}
-                                        disabled={isProcessing}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm"
-                                    >
-                                        <action.icon size={12} />
-                                        {action.label}
-                                    </button>
-                                ))}
+                                {AI_ACTIONS.transform.map(action => {
+                                    const isThisProcessing = processingAction === `transform-${action.id}`;
+                                    return (
+                                        <button
+                                            key={action.id}
+                                            onClick={() => handleQuickAction("transform", action.id)}
+                                            disabled={isProcessing}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm",
+                                                isThisProcessing && "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                            )}
+                                        >
+                                            {isThisProcessing ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                            ) : (
+                                                <action.icon size={12} />
+                                            )}
+                                            {action.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                         {activeTab === "style" && (
                             <div className="flex flex-wrap gap-1.5">
-                                {AI_ACTIONS.style.map(style => (
-                                    <button
-                                        key={style.id}
-                                        onClick={() => handleQuickAction("style", style.id)}
-                                        disabled={isProcessing}
-                                        className="px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm"
-                                    >
-                                        {style.label}
-                                    </button>
-                                ))}
+                                {AI_ACTIONS.style.map(style => {
+                                    const isThisProcessing = processingAction === `style-${style.id}`;
+                                    return (
+                                        <button
+                                            key={style.id}
+                                            onClick={() => handleQuickAction("style", style.id)}
+                                            disabled={isProcessing}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm",
+                                                isThisProcessing && "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                            )}
+                                        >
+                                            {isThisProcessing && <Loader2 size={12} className="animate-spin" />}
+                                            {style.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                         {activeTab === "translate" && (
                             <div className="flex flex-wrap gap-1.5">
-                                {AI_ACTIONS.translate.map(lang => (
-                                    <button
-                                        key={lang.id}
-                                        onClick={() => handleQuickAction("translate", lang.id)}
-                                        disabled={isProcessing}
-                                        className="px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm"
-                                    >
-                                        {lang.label}
-                                    </button>
-                                ))}
+                                {AI_ACTIONS.translate.map(lang => {
+                                    const isThisProcessing = processingAction === `translate-${lang.id}`;
+                                    return (
+                                        <button
+                                            key={lang.id}
+                                            onClick={() => handleQuickAction("translate", lang.id)}
+                                            disabled={isProcessing}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-2 text-xs bg-muted hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-all disabled:opacity-50 hover:shadow-sm",
+                                                isThisProcessing && "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                            )}
+                                        >
+                                            {isThisProcessing && <Loader2 size={12} className="animate-spin" />}
+                                            {lang.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -434,8 +476,8 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                             <Sparkles size={16} className="text-amber-500" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-foreground">Select text to get started</p>
-                            <p className="text-xs text-muted-foreground">Or ask AI anything below</p>
+                            <p className="text-sm font-medium text-foreground">Chọn văn bản để bắt đầu</p>
+                            <p className="text-xs text-muted-foreground">Hoặc hỏi AI bất cứ điều gì bên dưới</p>
                         </div>
                     </div>
                 </div>
@@ -444,11 +486,34 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
             {/* Chat Messages - Takes up 70%+ of remaining space */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
                 {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-8">
-                        <MessageSquare size={40} className="mb-4 opacity-20" />
-                        <p className="text-sm font-medium mb-1">No messages yet</p>
-                        <p className="text-xs text-muted-foreground/70 max-w-[200px]">
-                            Select text and use quick actions, or type a custom prompt below.
+                    // Day 5: Simplified proactive suggestions - list style, not cards
+                    <div className="flex flex-col gap-1 py-4">
+                        <div className="flex items-center gap-2 mb-3 px-1">
+                            <Sparkles size={14} className="text-amber-600" />
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gợi ý nhanh</p>
+                        </div>
+                        {[
+                            { icon: ChevronRight, text: "Viết tiếp mục này", prompt: "Continue writing this text naturally, maintaining the same tone and style." },
+                            { icon: FileText, text: "Tóm tắt tài liệu", prompt: "Summarize this text concisely, capturing the key points." },
+                            { icon: Wand2, text: "Sinh kết luận", prompt: "Write a conclusion for this document." },
+                            { icon: Languages, text: "Dịch sang tiếng Việt", prompt: "Translate this text to Vietnamese." },
+                        ].map((suggestion, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => {
+                                    setInputValue(suggestion.prompt);
+                                    inputRef.current?.focus();
+                                }}
+                                className="group relative flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-150 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 rounded-md"
+                            >
+                                {/* Hover accent bar */}
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-0 group-hover:h-4 bg-amber-500 rounded-full transition-all duration-150 opacity-0 group-hover:opacity-100" />
+                                <suggestion.icon size={14} className="text-muted-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" />
+                                <span className="text-sm text-foreground/70 group-hover:text-foreground transition-colors">{suggestion.text}</span>
+                            </button>
+                        ))}
+                        <p className="text-[10px] text-muted-foreground/50 text-center mt-3">
+                            Hoặc tự gõ câu hỏi bên dưới
                         </p>
                     </div>
                 ) : (
@@ -469,7 +534,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                                     </span>
                                 )}
                                 <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
-                                
+
                                 {/* Message actions */}
                                 {message.role === "assistant" && (
                                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/30">
@@ -485,7 +550,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
                                         >
                                             <Check size={12} />
-                                            Apply to Document
+                                            Áp dụng vào tài liệu
                                         </button>
                                     </div>
                                 )}
@@ -504,7 +569,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
                     >
                         <Trash2 size={12} />
-                        Clear chat
+                        Xóa lịch sử
                     </button>
                 </div>
             )}
@@ -515,7 +580,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                     <textarea
                         ref={inputRef}
                         value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
+                        onChange={(e) => setInputValue(e.target.value.slice(0, 500))}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
@@ -525,13 +590,26 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                         placeholder="Ask AI anything..."
                         disabled={isProcessing}
                         rows={3}
+                        maxLength={500}
                         className={cn(
                             "w-full px-4 py-3 pr-14 text-sm bg-background border-2 rounded-2xl resize-none transition-all duration-200",
                             "placeholder:text-muted-foreground/50",
                             "focus:outline-none focus:border-amber-500/50 focus:shadow-lg focus:shadow-amber-500/10",
-                            "border-border hover:border-border/80"
+                            "border-border hover:border-border/80",
+                            inputValue.length > 450 && "border-amber-400/50"
                         )}
                     />
+                    {/* P1-007: Character counter */}
+                    {inputValue.length > 0 && (
+                        <span className={cn(
+                            "absolute left-3 bottom-3 text-[10px] transition-colors",
+                            inputValue.length > 450
+                                ? "text-amber-500"
+                                : "text-muted-foreground/50"
+                        )}>
+                            {inputValue.length}/500
+                        </span>
+                    )}
                     <button
                         onClick={handleSubmit}
                         disabled={!inputValue.trim() || isProcessing}
@@ -550,7 +628,7 @@ export function AISidePanel({ editor, isOpen, onClose, isEditorFocused = false }
                     </button>
                 </div>
                 <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">
-                    Press Enter to send • Shift+Enter for new line
+                    Nhấn Enter để gửi • Shift+Enter để xuống dòng
                 </p>
             </div>
         </div>

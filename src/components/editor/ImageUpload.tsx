@@ -118,20 +118,32 @@ export function ImageUpload({ editor, onUploadComplete, onUploadError }: ImageUp
         className="hidden"
       />
 
-      {/* Drop zone */}
+      {/* Drop zone - P2-012: Enhanced drag & drop visual feedback */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          'relative border-2 border-dashed rounded-lg p-6 transition-all',
+          'relative border-2 border-dashed rounded-xl p-6 transition-all duration-300',
           isDragging
-            ? 'border-primary bg-primary/5 scale-[1.02]'
-            : 'border-border hover:border-primary/50',
+            ? 'border-amber-500 bg-amber-500/10 scale-[1.03] shadow-lg shadow-amber-500/20 ring-4 ring-amber-500/20'
+            : 'border-border hover:border-primary/50 hover:bg-muted/30',
           isUploading && 'pointer-events-none opacity-60'
         )}
       >
-        <div className="flex flex-col items-center gap-3 text-center">
+        {/* Animated drag indicator */}
+        {isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-amber-500/5 rounded-xl animate-pulse">
+            <div className="text-center">
+              <Upload className="w-12 h-12 text-amber-500 mx-auto animate-bounce" />
+              <p className="text-sm font-medium text-amber-500 mt-2">Drop to upload</p>
+            </div>
+          </div>
+        )}
+        <div className={cn(
+          "flex flex-col items-center gap-3 text-center transition-opacity",
+          isDragging && "opacity-0"
+        )}>
           {/* Icon */}
           {isUploading ? (
             <Loader2 className="w-10 h-10 text-primary animate-spin" />

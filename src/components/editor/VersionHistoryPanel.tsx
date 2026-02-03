@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useVersionHistory } from "@/hooks/use-version-history";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Clock, RotateCcw, Save, Trash2, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, RotateCcw, Save, Trash2, AlertCircle, Loader2, Eye, EyeOff, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { formatDistanceToNow } from "@/lib/date-utils";
 
 interface VersionHistoryPanelProps {
@@ -34,6 +34,55 @@ export function VersionHistoryPanel({
   const [isRestoring, setIsRestoring] = useState<string | null>(null);
   const [versionDescription, setVersionDescription] = useState("");
   const [showSaveForm, setShowSaveForm] = useState(false);
+  // P1-009: Diff preview state
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+
+  // P1-009: Calculate diff stats between current content and a version
+  const getDiffStats = useMemo(() => {
+    return (versionContent: any) => {
+      try {
+        // Extract text content for comparison
+        const getTextLength = (content: any): number => {
+          if (!content) return 0;
+          if (typeof content === 'string') return content.length;
+          if (content.content) {
+            // TipTap JSON format
+            return JSON.stringify(content).length;
+          }
+          return JSON.stringify(content).length;
+        };
+
+        const getWordCount = (content: any): number => {
+          if (!content) return 0;
+          const text = typeof content === 'string'
+            ? content
+            : JSON.stringify(content);
+          const words = text.match(/\b\w+\b/g);
+          return words ? words.length : 0;
+        };
+
+        const currentLength = getTextLength(currentContent);
+        const versionLength = getTextLength(versionContent);
+        const currentWords = getWordCount(currentContent);
+        const versionWords = getWordCount(versionContent);
+
+        const charDiff = currentLength - versionLength;
+        const wordDiff = currentWords - versionWords;
+
+        return {
+          charDiff,
+          wordDiff,
+          currentWords,
+          versionWords,
+          percentChange: versionLength > 0
+            ? Math.round(((currentLength - versionLength) / versionLength) * 100)
+            : 0
+        };
+      } catch {
+        return { charDiff: 0, wordDiff: 0, currentWords: 0, versionWords: 0, percentChange: 0 };
+      }
+    };
+  }, [currentContent]);
 
   // Handle manual save version
   const handleSaveVersion = async () => {
@@ -109,60 +158,63 @@ export function VersionHistoryPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with Save Version Button */}
-      <div className="p-4 border-b border-border shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold">Version History</h3>
+      {/* Header with Save Version Button - Compact for narrow sidebar */}
+      <div className="px-3 py-3 border-b border-zinc-200/50 dark:border-zinc-800/50 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-zinc-400" />
+            <h3 className="text-xs font-medium text-zinc-600 dark:text-zinc-400">History</h3>
           </div>
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             onClick={() => setShowSaveForm(!showSaveForm)}
             disabled={isSaving}
+            className="h-7 px-2 text-xs"
+            title="Save Version"
           >
-            <Save className="w-4 h-4 mr-1.5" />
-            Save Version
+            <Save className="w-3.5 h-3.5 mr-1" />
+            Save
           </Button>
         </div>
-
-        {/* Save Version Form */}
-        {showSaveForm && (
-          <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-            <Input
-              placeholder="Version description (optional)"
-              value={versionDescription}
-              onChange={(e) => setVersionDescription(e.target.value)}
-              disabled={isSaving}
-              className="text-sm"
-            />
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveVersion} disabled={isSaving} className="flex-1">
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Snapshot"
-                )}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setShowSaveForm(false);
-                  setVersionDescription("");
-                }}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Save Version Form */}
+      {showSaveForm && (
+        <div className="space-y-2 p-3 mx-3 mb-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
+          <Input
+            placeholder="Description (optional)"
+            value={versionDescription}
+            onChange={(e) => setVersionDescription(e.target.value)}
+            disabled={isSaving}
+            className="text-xs h-8"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveVersion} disabled={isSaving} className="flex-1 h-7 text-xs">
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowSaveForm(false);
+                setVersionDescription("");
+              }}
+              disabled={isSaving}
+              className="h-7 text-xs"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Versions List */}
       <div className="flex-1 overflow-y-auto">
@@ -192,15 +244,16 @@ export function VersionHistoryPanel({
             {versions.map((version, index) => {
               const isLatest = index === 0;
               const timestamp = new Date(version.created_at);
+              const isPreviewOpen = previewVersionId === version.id;
+              const diffStats = !isLatest ? getDiffStats(version.content) : null;
 
               return (
                 <div
                   key={version.id}
-                  className={`p-3 rounded-lg border transition-colors ${
-                    isLatest
-                      ? "bg-primary/5 border-primary/20"
-                      : "bg-card border-border hover:bg-muted/50"
-                  }`}
+                  className={`p-3 rounded-lg border transition-colors ${isLatest
+                    ? "bg-primary/5 border-primary/20"
+                    : "bg-card border-border hover:bg-muted/50"
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1">
@@ -218,7 +271,78 @@ export function VersionHistoryPanel({
                         {formatDistanceToNow(timestamp)}
                       </p>
                     </div>
+                    {/* P1-009: Diff preview toggle button */}
+                    {!isLatest && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPreviewVersionId(isPreviewOpen ? null : version.id)}
+                        className="h-6 px-1.5"
+                        title={isPreviewOpen ? "Hide diff" : "Show diff from current"}
+                      >
+                        {isPreviewOpen ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    )}
                   </div>
+
+                  {/* P1-009: Diff stats display */}
+                  {!isLatest && diffStats && (
+                    <div className="flex items-center gap-3 mb-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        {diffStats.wordDiff > 0 ? (
+                          <ArrowUpRight className="w-3 h-3 text-green-500" />
+                        ) : diffStats.wordDiff < 0 ? (
+                          <ArrowDownRight className="w-3 h-3 text-red-500" />
+                        ) : (
+                          <Minus className="w-3 h-3 text-muted-foreground" />
+                        )}
+                        <span className={
+                          diffStats.wordDiff > 0 ? "text-green-600 dark:text-green-400" :
+                            diffStats.wordDiff < 0 ? "text-red-600 dark:text-red-400" :
+                              "text-muted-foreground"
+                        }>
+                          {diffStats.wordDiff > 0 ? "+" : ""}{diffStats.wordDiff} words
+                        </span>
+                      </div>
+                      {diffStats.percentChange !== 0 && (
+                        <span className="text-muted-foreground">
+                          ({diffStats.percentChange > 0 ? "+" : ""}{diffStats.percentChange}%)
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* P1-009: Expanded diff preview */}
+                  {isPreviewOpen && diffStats && (
+                    <div className="mb-2 p-2 bg-muted/50 rounded text-xs space-y-1 border border-border/50">
+                      <div className="text-muted-foreground font-medium mb-1.5">Changes from this version:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">This version:</span>
+                          <span>{diffStats.versionWords} words</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Current:</span>
+                          <span>{diffStats.currentWords} words</span>
+                        </div>
+                      </div>
+                      <div className="pt-1 border-t border-border/50 mt-1.5">
+                        <span className="text-muted-foreground">Difference: </span>
+                        <span className={
+                          diffStats.wordDiff > 0 ? "text-green-600 dark:text-green-400 font-medium" :
+                            diffStats.wordDiff < 0 ? "text-red-600 dark:text-red-400 font-medium" :
+                              "text-muted-foreground"
+                        }>
+                          {diffStats.wordDiff > 0 ? "+" : ""}{diffStats.wordDiff} words
+                          ({diffStats.percentChange > 0 ? "+" : ""}{diffStats.percentChange}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {version.description && (
                     <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
@@ -272,13 +396,15 @@ export function VersionHistoryPanel({
       </div>
 
       {/* Footer Info */}
-      {versions.length > 0 && (
-        <div className="p-3 border-t border-border shrink-0 bg-muted/30">
-          <p className="text-xs text-muted-foreground text-center">
-            {versions.length} version{versions.length > 1 ? "s" : ""} saved
-          </p>
-        </div>
-      )}
-    </div>
+      {
+        versions.length > 0 && (
+          <div className="p-3 border-t border-border shrink-0 bg-muted/30">
+            <p className="text-xs text-muted-foreground text-center">
+              {versions.length} version{versions.length > 1 ? "s" : ""} saved
+            </p>
+          </div>
+        )
+      }
+    </div >
   );
 }
